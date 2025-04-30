@@ -27,6 +27,7 @@
 #include "Targets/M68k.h"
 #include "Targets/MSP430.h"
 #include "Targets/Mips.h"
+#include "Targets/Leros.h"
 #include "Targets/NVPTX.h"
 #include "Targets/OSTargets.h"
 #include "Targets/PNaCl.h"
@@ -469,6 +470,15 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
     default:
       return std::make_unique<RISCV64TargetInfo>(Triple, Opts);
     }
+
+  case llvm::Triple::leros32:
+    if (os == llvm::Triple::Linux)
+      return std::make_unique<LinuxTargetInfo<Leros32TargetInfo>>(Triple, Opts);
+    return std::make_unique<Leros32TargetInfo>(Triple, Opts);
+  case llvm::Triple::leros64:
+    if (os == llvm::Triple::Linux)
+      return std::make_unique<LinuxTargetInfo<Leros64TargetInfo>>(Triple, Opts);
+    return std::make_unique<Leros64TargetInfo>(Triple, Opts);
 
   case llvm::Triple::sparc:
     switch (os) {

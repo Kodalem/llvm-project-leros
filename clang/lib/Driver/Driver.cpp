@@ -49,6 +49,7 @@
 #include "ToolChains/TCE.h"
 #include "ToolChains/UEFI.h"
 #include "ToolChains/VEToolchain.h"
+#include "ToolChains/LerosToolchain.h"
 #include "ToolChains/WebAssembly.h"
 #include "ToolChains/XCore.h"
 #include "ToolChains/ZOS.h"
@@ -6917,6 +6918,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       case llvm::Triple::avr:
         TC = std::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
         break;
+      case llvm::Triple::leros32:
+      case llvm::Triple::leros64:
+        TC = llvm::make_unique<toolchains::LerosToolChain>(*this, Target, Args);
+       break;
       case llvm::Triple::msp430:
         TC =
             std::make_unique<toolchains::MSP430ToolChain>(*this, Target, Args);
