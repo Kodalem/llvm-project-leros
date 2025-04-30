@@ -1303,6 +1303,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
       return "elf32-hexagon";
     case ELF::EM_LANAI:
       return "elf32-lanai";
+    case ELF::EM_LEROS:
+      return "ELF32-leros";
     case ELF::EM_MIPS:
       return "elf32-mips";
     case ELF::EM_MSP430:
@@ -1341,6 +1343,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
       return "elf64-s390";
     case ELF::EM_SPARCV9:
       return "elf64-sparc";
+    case ELF::EM_LEROS:
+      return "ELF64-leros";
     case ELF::EM_MIPS:
       return "elf64-mips";
     case ELF::EM_AMDGPU:
@@ -1402,6 +1406,15 @@ template <class ELFT> Triple::ArchType ELFObjectFile<ELFT>::getArch() const {
     case ELF::ELFCLASS64:
       return Triple::riscv64;
     default:
+      report_fatal_error("Invalid ELFCLASS!");
+    }
+  case ELF::EM_LEROS:
+    switch (EF.getHeader()->e_ident[ELF::EI_CLASS]) {
+  case ELF::ELFCLASS32:
+      return Triple::leros32;
+  case ELF::ELFCLASS64:
+      return Triple::leros64;
+  default:
       report_fatal_error("Invalid ELFCLASS!");
     }
   case ELF::EM_S390:

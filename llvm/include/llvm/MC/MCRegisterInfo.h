@@ -81,7 +81,9 @@ public:
 
   /// contains - Return true if both registers are in this class.
   bool contains(MCRegister Reg1, MCRegister Reg2) const {
-    return contains(Reg1) && contains(Reg2);
+    auto tmp = contains(Reg1);
+    auto tmp2 = contains(Reg2);
+    return tmp && tmp2;
   }
 
   /// Return the size of the physical register in bits if we are able to
