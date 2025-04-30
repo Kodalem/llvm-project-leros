@@ -21,12 +21,14 @@
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCStreamer.h" // Ensure MCStreamer header is included
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/SMLoc.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "LerosAmsParser.h"
+#include <memory>
 
 using namespace llvm;
 
@@ -42,14 +44,14 @@ class LerosAsmParser : public MCTargetAsmParser {
   unsigned validateTargetOperandClass(MCParsedAsmOperand &Op,
                                       unsigned Kind) override;
 
-  bool MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+  bool matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                                OperandVector &Operands, MCStreamer &Out,
                                uint64_t &ErrorInfo,
                                bool MatchingInlineAsm) override;
 
-  bool ParseRegister(unsigned &RegNo, SMLoc &StartLoc, SMLoc &EndLoc) override;
+  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
 
-  bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
+  bool parseInstruction(ParseInstructionInfo &Info, StringRef Name,
                         SMLoc NameLoc, OperandVector &Operands) override;
 
   bool ParseDirective(AsmToken DirectiveID) override { return true; }
@@ -59,9 +61,9 @@ class LerosAsmParser : public MCTargetAsmParser {
 #include "LerosGenAsmMatcher.inc"
 
   bool parseOperand(OperandVector &Operands, StringRef Mnemonic);
-  OperandMatchResultTy parseImmediate(OperandVector &Operands);
-  OperandMatchResultTy parseRegister(OperandVector &Operands);
-  OperandMatchResultTy parseBareSymbol(OperandVector &Operands);
+  ParseStatus parseImmediate(OperandVector &Operands);
+  ParseStatus parseRegister(OperandVector &Operands);
+  ParseStatus parseBareSymbol(OperandVector &Operands);
 
 public:
   enum LerosMatchResultTy {
@@ -84,7 +86,7 @@ public:
 /// instruction
 struct LerosOperand : public MCParsedAsmOperand {
 
-  enum KindTy { Token, Register, Immediate } Kind;
+  enum KindTy { Token, Register, Immediate, Memory } Kind;
 
   struct RegOp {
     unsigned RegNum;
@@ -93,6 +95,7 @@ struct LerosOperand : public MCParsedAsmOperand {
   struct ImmOp {
     const MCExpr *Val;
   };
+
 
   struct SysRegOp {
     const char *Data;
@@ -107,7 +110,7 @@ struct LerosOperand : public MCParsedAsmOperand {
     StringRef Tok;
     RegOp Reg;
     ImmOp Imm;
-    struct SysRegOp SysReg;
+    SysRegOp SysReg;
   };
 
   LerosOperand(KindTy K) : MCParsedAsmOperand(), Kind(K) {}
@@ -133,13 +136,14 @@ public:
   bool isToken() const override { return Kind == Token; }
   bool isReg() const override { return Kind == Register; }
   bool isImm() const override { return Kind == Immediate; }
+  bool isMem() const override { return Kind == Memory; }
 
   /// getStartLoc - Gets location of the first token of this operand
   SMLoc getStartLoc() const override { return StartLoc; }
   /// getEndLoc - Gets location of the last token of this operand
   SMLoc getEndLoc() const override { return EndLoc; }
 
-  unsigned getReg() const override {
+  MCRegister getReg() const override {
     assert(Kind == Register && "Invalid type access!");
     return Reg.RegNum;
   }
@@ -151,7 +155,7 @@ public:
       break;
     case Register:
       OS << "<register r";
-      OS << getReg() << ">";
+      OS << getReg().id() << ">";
       break;
     case Token:
       OS << "'" << getToken() << "'";
@@ -296,7 +300,7 @@ public:
   }
 
   static std::unique_ptr<LerosOperand> createToken(StringRef Str, SMLoc S) {
-    auto Op = make_unique<LerosOperand>(Token);
+    auto Op = std::make_unique<LerosOperand>(Token);
     Op->Tok = Str;
     Op->StartLoc = S;
     Op->EndLoc = S;
@@ -305,7 +309,7 @@ public:
 
   static std::unique_ptr<LerosOperand> createReg(unsigned RegNo, SMLoc S,
                                                  SMLoc E) {
-    auto Op = make_unique<LerosOperand>(Register);
+    auto Op = std::make_unique<LerosOperand>(Register);
     Op->Reg.RegNum = RegNo;
     Op->StartLoc = S;
     Op->EndLoc = E;
@@ -314,7 +318,7 @@ public:
 
   static std::unique_ptr<LerosOperand> createImm(const MCExpr *Val, SMLoc S,
                                                  SMLoc E) {
-    auto Op = make_unique<LerosOperand>(Immediate);
+    auto Op = std::make_unique<LerosOperand>(Immediate);
     Op->Imm.Val = Val;
     Op->StartLoc = S;
     Op->EndLoc = E;
@@ -343,8 +347,6 @@ bool LerosAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
 }
 
 OperandMatchResultTy LerosAsmParser::parseRegister(OperandVector &Operands) {
-  AsmToken Buf[2];
-
   switch (getLexer().getKind()) {
   default:
     return MatchOperand_NoMatch;
@@ -357,10 +359,10 @@ OperandMatchResultTy LerosAsmParser::parseRegister(OperandVector &Operands) {
         return MatchOperand_NoMatch;
       }
     }
+    getLexer().Lex(); // Eat register token.
     SMLoc S = getLoc();
     SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
     Operands.push_back(LerosOperand::createReg(RegNo, S, E));
-    getLexer().Lex();
   }
   return MatchOperand_Success;
 }
@@ -375,15 +377,15 @@ bool LerosAsmParser::parseOperand(OperandVector &Operands, StringRef Mnemonic) {
   if (Result == MatchOperand_ParseFail)
     return true;
 
-  // Attempt to parse token as a register.
+  // Attempt to parse as a register operand.
   if (parseRegister(Operands) == MatchOperand_Success)
     return false;
 
-  // Attempt to parse token as an immediate
+  // Attempt to parse as an immediate operand.
   if (parseImmediate(Operands) == MatchOperand_Success)
     return false;
 
-  // Finally we have exhausted all options and must declare defeat.
+  // Finally, try to parse bare symbol.
   Error(getLoc(), "unknown operand");
   return true;
 }
@@ -424,6 +426,7 @@ OperandMatchResultTy LerosAsmParser::parseImmediate(OperandVector &Operands) {
     break;
   case AsmToken::Identifier: {
     StringRef Identifier;
+    // This calls parseIdentifier twice, maybe check MCAsmParser::parsePrimaryExpr?
     if (getParser().parseIdentifier(Identifier))
       return MatchOperand_ParseFail;
     MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
@@ -431,14 +434,13 @@ OperandMatchResultTy LerosAsmParser::parseImmediate(OperandVector &Operands) {
     break;
   }
   }
+  E = SMLoc::getFromPointer(getLoc().getPointer() - 1);
 
   Operands.push_back(LerosOperand::createImm(Res, S, E));
   return MatchOperand_Success;
 }
 
-bool LerosAsmParser::ParseInstruction(ParseInstructionInfo &Info,
-                                      StringRef Name, SMLoc NameLoc,
-                                      OperandVector &Operands) {
+bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name, SMLoc NameLoc, OperandVector &Operands) {
   // First operand is token for instruction
   Operands.push_back(LerosOperand::createToken(Name, NameLoc));
 
@@ -446,17 +448,17 @@ bool LerosAsmParser::ParseInstruction(ParseInstructionInfo &Info,
   if (getLexer().is(AsmToken::EndOfStatement))
     return false;
 
-  // Parse the potential first instruction operand
-  if (getLexer().isNot(AsmToken::EndOfStatement)) {
-
+  // Parse operands
+  while (getLexer().isNot(AsmToken::EndOfStatement)) {
     if (parseOperand(Operands, Name))
       return true;
 
-    // At this point, next token must always be end of statement
-    if (getLexer().isNot(AsmToken::EndOfStatement)) {
+    // Check if the token is a comma, if so, eat it and continue
+    if (getLexer().is(AsmToken::Comma))
+      getLexer().Lex();
+    else if (getLexer().isNot(AsmToken::EndOfStatement)) {
       SMLoc Loc = getLexer().getLoc();
-      getParser().eatToEndOfStatement();
-      return Error(Loc, "unexpected token");
+      return Error(Loc, "unexpected token in operand list");
     }
   }
 
@@ -485,7 +487,7 @@ bool LerosAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   default:
     break;
   case Match_Success: {
-    Out.EmitInstruction(Inst, getSTI());
+    Out.emitInstruction(Inst, getSTI());
     return false;
   }
   case Match_MissingFeature:
@@ -493,14 +495,14 @@ bool LerosAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   case Match_MnemonicFail:
     return Error(IDLoc, "unrecognized instruction mnemonic");
   case Match_InvalidOperand: {
-    SMLoc ErrorLoc = IDLoc;
-    if (ErrorInfo != ~0U) {
-      if (ErrorInfo >= Operands.size())
-        return Error(ErrorLoc, "too few operands for instruction");
-
+    SMLoc ErrorLoc = Operands.empty() ? IDLoc : Operands[0]->getStartLoc(); // Default to operand 0 if ErrorInfo is invalid
+    if (ErrorInfo != ~0U && ErrorInfo < Operands.size()) {
       ErrorLoc = ((LerosOperand &)*Operands[ErrorInfo]).getStartLoc();
       if (ErrorLoc == SMLoc())
         ErrorLoc = IDLoc;
+    } else if (ErrorInfo >= Operands.size()) {
+        // ErrorInfo points past the last operand.
+        return Error(IDLoc, "too few operands for instruction");
     }
     return Error(ErrorLoc, "invalid operand for instruction");
   }
@@ -511,8 +513,11 @@ bool LerosAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   // corresponding operand is missing.
   if (Result > FIRST_TARGET_MATCH_RESULT_TY) {
     SMLoc ErrorLoc = IDLoc;
-    if (ErrorInfo != ~0U && ErrorInfo >= Operands.size())
+    if (ErrorInfo != ~0U && ErrorInfo >= Operands.size()) {
       return Error(ErrorLoc, "too few operands for instruction");
+    } else if (ErrorInfo != ~0U) {
+      ErrorLoc = ((LerosOperand &)*Operands[ErrorInfo]).getStartLoc();
+    }
   }
 
   llvm_unreachable("Unknown match type detected!");
@@ -569,3 +574,4 @@ extern "C" void LLVMInitializeLerosAsmParser() {
   RegisterMCAsmParser<LerosAsmParser> X(getTheLeros32Target());
   RegisterMCAsmParser<LerosAsmParser> Y(getTheLeros64Target());
 }
+

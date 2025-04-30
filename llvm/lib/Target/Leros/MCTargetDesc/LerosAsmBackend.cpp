@@ -11,10 +11,13 @@
 #include "MCTargetDesc/LerosMCTargetDesc.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/MC/MCAsmBackend.h"
+#include "llvm/MC/MCFixupKindInfo.h"
+#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCELFObjectWriter.h"
+#include "llvm/Support/Endian.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCFixupKindInfo.h"
 #include "llvm/MC/MCObjectWriter.h"
@@ -33,7 +36,7 @@ class LerosAsmBackend : public MCAsmBackend {
 
 public:
   LerosAsmBackend(const MCSubtargetInfo &STI, uint8_t OSABI, bool Is64Bit)
-      : MCAsmBackend(support::little), STI(STI), OSABI(OSABI),
+      : MCAsmBackend(llvm::endianness::little), STI(STI), OSABI(OSABI),
         Is64Bit(Is64Bit) {}
   ~LerosAsmBackend() override {}
 
@@ -47,22 +50,21 @@ public:
     return false;
   }
 
-  bool fixupNeedsRelaxation(const MCFixup &Fixup, uint64_t Value,
-                            const MCRelaxableFragment *DF,
-                            const MCAsmLayout &Layout) const override {
+  bool fixupNeedsRelaxationAdvanced(const MCAssembler &Asm,
+                                    const MCFixup &Fixup, const MCValue &Target,
+                                    uint64_t Value, bool IsResolved) const override {
     return false;
   }
 
-  void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
-                        MCInst &Res) const override {
+  void LerosAsmBackend::relaxInstruction(MCInst &Inst, const MCSubtargetInfo &STI) const override {
     return;
   }
 
-  unsigned getNumFixupKinds() const override {
+  unsigned getFixupKindCount() const { // CHECK IF OVERRIDE IS LOAD BEARING!!!
     return Leros::NumTargetFixupKinds;
   }
 
-  const MCFixupKindInfo &getFixupKindInfo(MCFixupKind Kind) const override {
+  MCFixupKindInfo getFixupKindInfo(MCFixupKind Kind) const override {
     const static MCFixupKindInfo Infos[] = {
         // This table *must* be in the order that the fixup_* kinds are defined
         // in
@@ -75,7 +77,7 @@ public:
         {"fixup_leros_b2", 0, 8, 0},
         {"fixup_leros_b3", 0, 8, 0},
     };
-    static_assert((array_lengthof(Infos)) == Leros::NumTargetFixupKinds,
+    static_assert((sizeof(Infos) / sizeof(Infos[0])) == Leros::NumTargetFixupKinds,
                   "Not all fixup kinds added to Infos array");
 
     if (Kind < FirstTargetFixupKind)
@@ -88,7 +90,8 @@ public:
 
   std::unique_ptr<MCObjectTargetWriter>
   createObjectTargetWriter() const override;
-  bool writeNopData(raw_ostream &OS, uint64_t Count) const override;
+  bool writeNopData(raw_ostream &OS, uint64_t Count,
+                   const MCSubtargetInfo *STI) const override;
 };
 
 static uint64_t adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
@@ -148,7 +151,8 @@ void LerosAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
   }
 }
 
-bool LerosAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count) const {
+bool LerosAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
+                                   const MCSubtargetInfo *STI) const override {
   unsigned nopLen = 2;
 
   if ((Count % nopLen) != 0)

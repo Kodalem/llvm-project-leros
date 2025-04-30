@@ -36,16 +36,15 @@ void LerosMCExpr::printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const {
 }
 
 bool LerosMCExpr::evaluateAsRelocatableImpl(MCValue &Res,
-                                            const MCAsmLayout *Layout,
-                                            const MCFixup *Fixup) const {
-  if (!getSubExpr()->evaluateAsRelocatable(Res, Layout, Fixup))
+                                           const MCAssembler *Asm) const {
+  if (!getSubExpr()->evaluateAsRelocatable(Res, Asm))
     return false;
 
   // Some custom fixup types are not valid with symbol difference expressions
-  if (Res.getSymA() && Res.getSymB()) {
+  if (Res.getAddSym() && Res.getSubSym()) {
     switch (getKind()) {
     default:
-      return true;
+      break;
     case VK_Leros_B0:
     case VK_Leros_B1:
     case VK_Leros_B2:
@@ -54,6 +53,7 @@ bool LerosMCExpr::evaluateAsRelocatableImpl(MCValue &Res,
     }
   }
 
+  Res.setSpecifier(getKind());
   return true;
 }
 
@@ -88,7 +88,7 @@ StringRef LerosMCExpr::getVariantKindName(VariantKind Kind) {
 bool LerosMCExpr::evaluateAsConstant(int64_t &Res) const {
   MCValue Value;
 
-  if (!getSubExpr()->evaluateAsRelocatable(Value, nullptr, nullptr))
+  if (!getSubExpr()->evaluateAsRelocatable(Value, nullptr))
     return false;
 
   if (!Value.isAbsolute())

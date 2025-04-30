@@ -10,11 +10,10 @@
 #include "InstPrinter/LerosInstPrinter.h"
 #include "Leros.h"
 #include "MCTargetDesc/LerosMCTargetDesc.h"
-#include "llvm/Support/TargetRegistry.h"
-
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineInstrBundle.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/TargetRegistry.h"
 
 namespace llvm {
 
@@ -28,7 +27,7 @@ public:
 
   StringRef getPassName() const override { return "Leros Assembly Printer"; }
 
-  void EmitInstruction(const MachineInstr *MI) override;
+  void EmitInstruction(const MachineInstr *MI);
 };
 } // end of anonymous namespace
 

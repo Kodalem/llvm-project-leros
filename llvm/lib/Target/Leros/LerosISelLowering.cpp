@@ -38,6 +38,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Support/GraphWriter.h"
+#include <cstddef>
+
 
 #define DEBUG_TYPE "leros-lower"
 
@@ -141,8 +143,8 @@ LerosTargetLowering::LerosTargetLowering(const TargetMachine &TM,
 
   // Function alignments (log2).
   unsigned FunctionAlignment = 1; // align to 2^1 bytes boundaries
-  setMinFunctionAlignment(FunctionAlignment);
-  setPrefFunctionAlignment(FunctionAlignment);
+  setMinFunctionAlignment(Align(FunctionAlignment));
+  setPrefFunctionAlignment(Align(FunctionAlignment));
 
   // Effectively disable jump table generation.
   setMinimumJumpTableEntries(INT_MAX);
@@ -730,13 +732,13 @@ static bool CC_LerosAssign2XLen(unsigned XLen, CCState &State, CCValAssign VA1,
                                      VA1.getLocVT(), CCValAssign::Full));
   } else {
     // Both halves must be passed on the stack, with proper alignment.
-    unsigned StackAlign = std::max(XLenInBytes, ArgFlags1.getOrigAlign());
+unsigned StackAlign = std::max<unsigned>(XLenInBytes, static_cast<unsigned>(ArgFlags1.getNonZeroOrigAlign().value()));
     State.addLoc(
         CCValAssign::getMem(VA1.getValNo(), VA1.getValVT(),
-                            State.AllocateStack(XLenInBytes, StackAlign),
+                            State.AllocateStack(XLenInBytes, Align(StackAlign)),
                             VA1.getLocVT(), CCValAssign::Full));
     State.addLoc(CCValAssign::getMem(
-        ValNo2, ValVT2, State.AllocateStack(XLenInBytes, XLenInBytes), LocVT2,
+        ValNo2, ValVT2, State.AllocateStack(XLenInBytes, Align(XLenInBytes)), LocVT2,
         CCValAssign::Full));
     return false;
   }
@@ -748,7 +750,7 @@ static bool CC_LerosAssign2XLen(unsigned XLen, CCState &State, CCValAssign VA1,
   } else {
     // The second half is passed via the stack, without additional alignment.
     State.addLoc(CCValAssign::getMem(
-        ValNo2, ValVT2, State.AllocateStack(XLenInBytes, XLenInBytes), LocVT2,
+        ValNo2, ValVT2, State.AllocateStack(XLenInBytes, Align(XLenInBytes)), LocVT2,
         CCValAssign::Full));
   }
 
@@ -780,13 +782,13 @@ static bool CC_Leros(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
   // original type is larger than 2*XLEN, so the register alignment rule does
   // not apply.
   unsigned TwoXLenInBytes = (2 * XLen) / 8;
-  if (!IsFixed && ArgFlags.getOrigAlign() == TwoXLenInBytes &&
+  if (!IsFixed && ArgFlags.getNonZeroOrigAlign().value() == TwoXLenInBytes &&
       DL.getTypeAllocSize(OrigTy) == TwoXLenInBytes) {
     unsigned RegIdx = State.getFirstUnallocated(ArgGPRs);
     // Skip 'odd' register if necessary.
-    if (RegIdx != array_lengthof(ArgGPRs) && RegIdx % 2 == 1)
+    if (RegIdx != std::size(ArgGPRs) && RegIdx % 2 == 1)
       State.AllocateReg(ArgGPRs);
-  }
+      }
 
   SmallVectorImpl<CCValAssign> &PendingLocs = State.getPendingLocs();
   SmallVectorImpl<ISD::ArgFlagsTy> &PendingArgFlags =
@@ -806,13 +808,13 @@ static bool CC_Leros(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
     unsigned Reg = State.AllocateReg(ArgGPRs);
     LocVT = MVT::i32;
     if (!Reg) {
-      unsigned StackOffset = State.AllocateStack(8, 8);
+      unsigned StackOffset = State.AllocateStack(8, Align(8));
       State.addLoc(
           CCValAssign::getMem(ValNo, ValVT, StackOffset, LocVT, LocInfo));
       return false;
     }
     if (!State.AllocateReg(ArgGPRs))
-      State.AllocateStack(4, 4);
+      State.AllocateStack(4, Align(4));
     State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, LocVT, LocInfo));
     return false;
   }
@@ -846,7 +848,7 @@ static bool CC_Leros(const DataLayout &DL, unsigned ValNo, MVT ValVT, MVT LocVT,
 
   // Allocate to a register if possible, or else a stack slot.
   unsigned Reg = State.AllocateReg(ArgGPRs);
-  unsigned StackOffset = Reg ? 0 : State.AllocateStack(XLen / 8, XLen / 8);
+  unsigned StackOffset = Reg ? 0 : State.AllocateStack(XLen / 8, Align(XLen / 8));
 
   // If we reach this point and PendingLocs is non-empty, we must be at the
   // end of a split argument that must be passed indirectly.
@@ -984,13 +986,14 @@ SDValue LerosTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // Leros does not support tail calls
   IsTailCall = false;
 
+  #if defined(CS)
   if (CLI.CS && CLI.CS.isMustTailCall())
-    report_fatal_error("failed to perform tail call elimination on a call "
-                       "site marked musttail");
+      report_fatal_error("failed to perform tail call elimination on a call "
+                         "site marked musttail");
+  #endif
 
   // Get a count of how many bytes are to be pushed on the stack.
-  unsigned NumBytes = ArgCCInfo.getNextStackOffset();
-
+  unsigned NumBytes = ArgCCInfo.getStackSize();
   // Create local copies for byval args
   SmallVector<SDValue, 8> ByValArgs;
   for (unsigned i = 0, e = Outs.size(); i != e; ++i) {
@@ -1000,16 +1003,20 @@ SDValue LerosTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
     SDValue Arg = OutVals[i];
     unsigned Size = Flags.getByValSize();
-    unsigned Align = Flags.getByValAlign();
+    unsigned Align = Flags.getNonZeroByValAlign().value();
 
-    int FI = MF.getFrameInfo().CreateStackObject(Size, Align, /*isSS=*/false);
+    int FI = MF.getFrameInfo().CreateStackObject(Size, llvm::Align(Align), /*isSS=*/false);
     SDValue FIPtr = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
     SDValue SizeNode = DAG.getConstant(Size, DL, XLenVT);
 
-    Chain = DAG.getMemcpy(Chain, DL, FIPtr, Arg, SizeNode, Align,
+    Chain = DAG.getMemcpy(Chain, DL, FIPtr, Arg, SizeNode, llvm::Align(Align),
                           /*IsVolatile=*/false,
-                          /*AlwaysInline=*/false, IsTailCall,
-                          MachinePointerInfo(), MachinePointerInfo());
+                          /*AlwaysInline=*/false,
+                          /*CI=*/nullptr,
+                          /*OverrideTailCall=*/IsTailCall,
+                          MachinePointerInfo(), MachinePointerInfo(),
+                          /*AAInfo=*/AAMDNodes(),
+                          /*BatchAA=*/nullptr);
     ByValArgs.push_back(FIPtr);
   }
 
@@ -1303,7 +1310,7 @@ SDValue LerosTargetLowering::LowerFormalArguments(
   }
 
   if (IsVarArg) {
-    ArrayRef<MCPhysReg> ArgRegs = makeArrayRef(ArgGPRs);
+    ArrayRef<MCPhysReg> ArgRegs(ArgGPRs);
     unsigned Idx = CCInfo.getFirstUnallocated(ArgRegs);
     const TargetRegisterClass *RC = &Leros::GPRRegClass;
     MachineFrameInfo &MFI = MF.getFrameInfo();
@@ -1318,7 +1325,7 @@ SDValue LerosTargetLowering::LowerFormalArguments(
     // If all registers are allocated, then all varargs must be passed on the
     // stack and we don't need to save any argregs.
     if (ArgRegs.size() == Idx) {
-      VaArgOffset = CCInfo.getNextStackOffset();
+      VaArgOffset = CCInfo.getStackSize();
       VarArgsSaveSize = 0;
     } else {
       VarArgsSaveSize = XLenInBytes * (ArgRegs.size() - Idx);

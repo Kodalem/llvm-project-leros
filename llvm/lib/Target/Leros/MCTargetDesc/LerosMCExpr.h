@@ -16,6 +16,7 @@
 #define LLVM_LIB_TARGET_Leros_MCTARGETDESC_LerosMCEXPR_H
 
 #include "llvm/MC/MCExpr.h"
+#include "llvm/MC/MCValue.h"
 
 namespace llvm {
 
@@ -50,15 +51,15 @@ public:
   const MCExpr *getSubExpr() const { return Expr; }
 
   void printImpl(raw_ostream &OS, const MCAsmInfo *MAI) const override;
-  bool evaluateAsRelocatableImpl(MCValue &Res, const MCAsmLayout *Layout,
-                                 const MCFixup *Fixup) const override;
+  bool evaluateAsRelocatableImpl(MCValue &Res,
+                                const MCAssembler *Asm) const override;
   void visitUsedExpr(MCStreamer &Streamer) const override;
   MCFragment *findAssociatedFragment() const override {
     return getSubExpr()->findAssociatedFragment();
   }
 
   // There are no TLS LerosMCExprs at the moment.
-  void fixELFSymbolsInTLSFixups(MCAssembler &Asm) const override {}
+  void fixELFSymbolsInTLSFixups(MCAssembler &Asm) const {}
 
   bool evaluateAsConstant(int64_t &Res) const;
 

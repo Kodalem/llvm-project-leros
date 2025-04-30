@@ -18,6 +18,7 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -26,16 +27,14 @@
 namespace llvm {
 #include "LerosGenAsmWriter.inc"
 
-void LerosInstPrinter::printRegName(raw_ostream &OS, unsigned RegNo) const {
-  OS << getRegisterName(RegNo);
+void LerosInstPrinter::printRegName(raw_ostream &O, MCRegister Reg) {
+  O << getRegisterName(Reg);
 }
 
-void LerosInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
-                                 StringRef Annot, const MCSubtargetInfo &STI) {
-  // No alias instructions available for Leros, so go straight to printing
-  // using tablegen generated method
-  printInstruction(MI, O);
-  printAnnotation(O, Annot);
+void LerosInstPrinter::printInst(const MCInst *MI, uint64_t Address, StringRef Annot,
+                                 const MCSubtargetInfo &STI, raw_ostream &OS) {
+  printInstruction(MI, Address, OS);
+  printAnnotation(OS, Annot);
 }
 
 static void printExpr(const MCExpr *Expr, raw_ostream &OS) {

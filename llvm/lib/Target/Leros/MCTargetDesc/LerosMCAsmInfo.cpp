@@ -9,7 +9,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "LerosMCAsmInfo.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/BinaryFormat/Dwarf.h"
+#include "llvm/MC/MCStreamer.h"
+#include "llvm/TargetParser/Triple.h"
 
 namespace llvm {
 void LerosMCAsmInfo::anchor() {}

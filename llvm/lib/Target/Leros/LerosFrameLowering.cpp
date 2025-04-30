@@ -32,12 +32,13 @@ namespace llvm {
 // LerosFrameLowering:
 //===----------------------------------------------------------------------===//
 
+
 bool LerosFrameLowering::hasFP(const MachineFunction &MF) const {
   const TargetRegisterInfo *RegInfo = MF.getSubtarget().getRegisterInfo();
 
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   return MF.getTarget().Options.DisableFramePointerElim(MF) ||
-         RegInfo->needsStackRealignment(MF) || MFI.hasVarSizedObjects() ||
+         RegInfo->hasStackRealignment(MF) || MFI.hasVarSizedObjects() ||
          MFI.isFrameAddressTaken();
 }
 
@@ -56,8 +57,8 @@ void LerosFrameLowering::determineFrameLayout(MachineFunction &MF) const {
   uint64_t FrameSize = MFI.getStackSize();
 
   // Get the alignment.
-  uint64_t StackAlign = RI->needsStackRealignment(MF) ? MFI.getMaxAlignment()
-                                                      : getStackAlignment();
+  uint64_t StackAlign = RI->hasStackRealignment(MF) ? MFI.getMaxAlign().value()
+                                                    : getStackAlignment();
 
   // Make sure the frame is aligned.
   FrameSize = alignTo(FrameSize, StackAlign);
@@ -212,7 +213,7 @@ void LerosFrameLowering::emitEpilogue(MachineFunction &MF,
   // Restore the stack pointer using the value of the frame pointer. Only
   // necessary if the stack pointer was modified, meaning the stack size is
   // unknown.
-  if (RI->needsStackRealignment(MF) || MFI.hasVarSizedObjects()) {
+  if (RI->hasStackRealignment(MF) || MFI.hasVarSizedObjects()) {
     assert(hasFP(MF) && "frame pointer should not have been eliminated");
     adjustReg(MBB, LastFrameDestroy, DL, SPReg, FPReg,
               -StackSize + RVFI->getVarArgsSaveSize(),

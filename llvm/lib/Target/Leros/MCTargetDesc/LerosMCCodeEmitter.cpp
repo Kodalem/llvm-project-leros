@@ -48,7 +48,7 @@ public:
 
   ~LerosMCCodeEmitter() override {}
 
-  void encodeInstruction(const MCInst &MI, raw_ostream &OS,
+  void encodeInstruction(const MCInst &MI, SmallVectorImpl<char> &CB,
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const override;
 
@@ -85,11 +85,10 @@ MCCodeEmitter *llvm::createLerosMCCodeEmitter(const MCInstrInfo &MCII,
   return new LerosMCCodeEmitter(Ctx, MCII);
 }
 
-void LerosMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
-                                           SmallVectorImpl<MCFixup> &Fixups,
-                                           const MCSubtargetInfo &STI) const {
+void LerosMCCodeEmitter::encodeInstruction(const MCInst &MI, SmallVectorImpl<char> &CB,
+                         SmallVectorImpl<MCFixup> &Fixups,
+                         const MCSubtargetInfo &STI) const {
   const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
-  // Get byte count of instruction.
   unsigned Size = Desc.getSize();
 
   switch (Size) {
@@ -97,12 +96,13 @@ void LerosMCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
     llvm_unreachable("Unhandled encodeInstruction length!");
   case 2: {
     uint16_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
-    support::endian::write<uint16_t>(OS, Bits, support::little);
+    CB.push_back(static_cast<char>(Bits & 0xFF));
+    CB.push_back(static_cast<char>((Bits >> 8) & 0xFF));
     break;
   }
   }
 
-  ++MCNumEmitted; // Keep track of the # of mi's emitted.
+  ++MCNumEmitted;
 }
 
 unsigned

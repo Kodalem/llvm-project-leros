@@ -14,12 +14,12 @@
 #include "MCTargetDesc/LerosMCTargetDesc.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
-#include "llvm/MC/MCFixedLenDisassembler.h"
+#include "llvm/MC/MCDisassembler/MCDisassembler.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 
 using namespace llvm;
 
@@ -35,9 +35,8 @@ public:
       : MCDisassembler(STI, Ctx) {}
 
   DecodeStatus getInstruction(MCInst &Instr, uint64_t &Size,
-                              ArrayRef<uint8_t> Bytes, uint64_t Address,
-                              raw_ostream &VStream,
-                              raw_ostream &CStream) const override;
+                             ArrayRef<uint8_t> Bytes, uint64_t Address,
+                             raw_ostream &CStream) const override;
 };
 } // end anonymous namespace
 
@@ -168,17 +167,13 @@ static DecodeStatus decodeSImmOperandAndLsl(MCInst &Inst, uint64_t Imm,
 DecodeStatus LerosDisassembler::getInstruction(MCInst &MI, uint64_t &Size,
                                                ArrayRef<uint8_t> Bytes,
                                                uint64_t Address,
-                                               raw_ostream &OS,
-                                               raw_ostream &CS) const {
-  // TODO: This will need modification when supporting instruction set
-  // extensions with instructions > 32-bits (up to 176 bits wide).
+                                               raw_ostream &OS) const {
   uint32_t Insn;
   DecodeStatus Result;
 
   Insn = support::endian::read16le(Bytes.data());
 
   LLVM_DEBUG(dbgs() << "Trying Leros_C table (16-bit Instruction):\n");
-  // Calling the auto-generated decoder function.
   Result = decodeInstruction(DecoderTable16, MI, Insn, Address, this, STI);
   Size = 2;
 

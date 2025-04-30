@@ -20,7 +20,7 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 
 #define GET_INSTRINFO_MC_DESC
 #include "LerosGenInstrInfo.inc"
@@ -54,9 +54,10 @@ static MCInstPrinter *createLerosMCInstPrinter(const Triple &T,
 }
 
 static MCSubtargetInfo *
-createLerosMCSubtargetInfo(const Triple &TT, StringRef CPU, StringRef FS) {
-  return createLerosMCSubtargetInfoImpl(TT, CPU, FS);
+  createLerosMCSubtargetInfo(const Triple &TT, StringRef CPU, StringRef FS) {
+  return createLerosMCSubtargetInfoImpl(TT, CPU, CPU, FS);
 }
+
 
 static MCAsmInfo *createLerosMCAsmInfo(const MCRegisterInfo &MRI,
                                        const Triple &TT) {

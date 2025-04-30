@@ -34,20 +34,20 @@ public:
   */
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                    const DebugLoc &DL, unsigned DstReg, unsigned SrcReg,
-                   bool KillSrc) const override;
+                   bool KillSrc) const ;
 
   void storeRegToStackSlot(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MBBI, unsigned SrcReg,
                            bool IsKill, int FrameIndex,
                            const TargetRegisterClass *RC,
-                           const TargetRegisterInfo *TRI) const override;
+                           const TargetRegisterInfo *TRI) const;
 
   void loadRegFromStackSlot(MachineBasicBlock &MBB,
                             MachineBasicBlock::iterator MBBI, unsigned DstReg,
                             int FrameIndex, const TargetRegisterClass *RC,
-                            const TargetRegisterInfo *TRI) const override;
+                            const TargetRegisterInfo *TRI) const;
 
-  bool expandPostRAPseudo(MachineInstr &MI) const override;
+  bool expandPostRAPseudo(MachineInstr &MI) const;
 
   void movImm32(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                 const DebugLoc &DL, unsigned DstReg, uint64_t Val,
@@ -59,16 +59,16 @@ public:
   unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
                         const DebugLoc &dl,
-                        int *BytesAdded = nullptr) const override;
+                        int *BytesAdded = nullptr) const;
 
   /// Determine if the branch target is in range.
   bool isBranchOffsetInRange(unsigned BranchOpc,
-                             int64_t BrOffset) const override;
+                             int64_t BrOffset) const;
 
-  unsigned getInstSizeInBytes(const MachineInstr &MI) const override;
+  unsigned getInstSizeInBytes(const MachineInstr &MI) const;
 
   unsigned removeBranch(MachineBasicBlock &MBB,
-                        int *BytesRemoved = nullptr) const override;
+                        int *BytesRemoved = nullptr) const;
 
 private:
   void expandMOV(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,

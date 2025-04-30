@@ -20,8 +20,8 @@
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetOptions.h"
 
 namespace llvm {
@@ -39,29 +39,29 @@ static std::string computeDataLayout(const Triple &TT) {
 }
 
 static Reloc::Model getEffectiveRelocModel(const Triple &TT,
-                                           Optional<Reloc::Model> RM) {
-  if (!RM.hasValue())
+                                           std::optional<Reloc::Model> RM) {
+  if (!RM)
     return Reloc::Static;
   return *RM;
 }
 
-static CodeModel::Model getEffectiveCodeModel(Optional<CodeModel::Model> CM) {
+static CodeModel::Model getEffectiveCodeModel(std::optional<CodeModel::Model> CM) {
   if (CM)
     return *CM;
   return CodeModel::Small;
 }
 
 LerosTargetMachine::LerosTargetMachine(const Target &T, const Triple &TT,
-                                       StringRef CPU, StringRef FS,
-                                       const TargetOptions &Options,
-                                       Optional<Reloc::Model> RM,
-                                       Optional<CodeModel::Model> CM,
-                                       CodeGenOpt::Level OL, bool JIT)
-    : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
-                        getEffectiveRelocModel(TT, RM),
-                        getEffectiveCodeModel(CM), OL),
-      Subtarget(TT, CPU, FS, *this),
-      TLOF(make_unique<LerosELFTargetObjectFile>()) {
+                                     StringRef CPU, StringRef FS,
+                                     const TargetOptions &Options,
+                                     std::optional<Reloc::Model> RM,
+                                     std::optional<CodeModel::Model> CM,
+                                     CodeGenOptLevel OL, bool JIT)
+    : CodeGenTargetMachineImpl(T, computeDataLayout(TT), TT, CPU, FS, Options,
+                             getEffectiveRelocModel(TT, RM),
+                             getEffectiveCodeModel(CM, CodeModel::Small), OL),
+      TLOF(std::make_unique<TargetLoweringObjectFileELF>()),
+      Subtarget(TT, CPU, FS, *this) {
   initAsmInfo();
 }
 

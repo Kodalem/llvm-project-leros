@@ -14,6 +14,7 @@
 #include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/Support/ErrorHandling.h"
+#include <memory>
 
 using namespace llvm;
 
@@ -26,7 +27,7 @@ public:
 
   // Return true if the given relocation must be with a symbol rather than
   // section plus offset.
-  bool needsRelocateWithSymbol(const MCSymbol &Sym,
+  bool needsRelocateWithSymbol(const MCValue &Val, const MCSymbol &Sym,
                                unsigned Type) const override {
 
     return true;
@@ -70,5 +71,5 @@ unsigned LerosELFObjectWriter::getRelocType(MCContext &Ctx,
 
 std::unique_ptr<MCObjectTargetWriter>
 llvm::createLerosELFObjectWriter(uint8_t OSABI, bool Is64Bit) {
-  return llvm::make_unique<LerosELFObjectWriter>(OSABI, Is64Bit);
+  return std::make_unique<LerosELFObjectWriter>(OSABI, Is64Bit);
 }

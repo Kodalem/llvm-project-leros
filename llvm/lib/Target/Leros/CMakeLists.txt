@@ -50,4 +50,17 @@ add_llvm_component_group(Leros LINK_COMPONENTS
         LerosSubtarget
         LerosTargetObjectFile
         LerosUseAccumulator
+        LerosMCInstLower
+        LerosGenRegisterInfo
+        LerosGenInstrInfo
+        LerosGenCallingConv
+        LerosGenSubtargetInfo
+        LerosGenMCCodeEmitter
+        LerosGenDisassemblerTables
+        LerosGenAsmWriter
+        LerosGenAsmMatcher
+        LerosGenDAGISel
+        LerosGenMCCodeEmitter
+        LerosGenDisassemblerTables
+        LerosGenAsmWriter
 )

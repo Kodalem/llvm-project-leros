@@ -19,12 +19,14 @@
 #define GET_SUBTARGETINFO_CTOR
 #include "LerosGenSubtargetInfo.inc"
 
+#include "llvm/CodeGen/MachineFrameInfo.h"
+
 namespace llvm {
 
 void LerosSubtarget::initializeSubtargetDependencies(StringRef CPU,
                                                      StringRef FS,
                                                      const Triple &TT) {
-  std::string CPUName = CPU;
+  std::string CPUName = CPU.str();
   if (CPUName.empty()) {
     if (TT.isArch64Bit()) {
       CPUName = "generic-leros64";
@@ -37,10 +39,17 @@ void LerosSubtarget::initializeSubtargetDependencies(StringRef CPU,
   ParseSubtargetFeatures(CPUName, FS);
 }
 
+bool LerosFrameLowering::hasFPImpl(const MachineFunction &MF) const {
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  return MF.getTarget().Options.DisableFramePointerElim(MF) ||
+         MFI.hasVarSizedObjects() ||
+         MFI.isFrameAddressTaken();
+}
+
 LerosSubtarget::LerosSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
                                const TargetMachine &TM)
-    : LerosGenSubtargetInfo(TT, CPU, FS), FrameLowering(*this), InstrInfo(),
-      RegInfo(getHwMode()), TLInfo(TM, *this) {
+    : LerosGenSubtargetInfo(TT, CPU, CPU, FS), FrameLowering(*this), InstrInfo(),
+      RegInfo(LerosGenSubtargetInfo::getHwMode()), TLInfo(TM, *this) {
 
   initializeSubtargetDependencies(CPU, FS, TT);
 }

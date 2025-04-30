@@ -11,6 +11,7 @@
 #define LLVM_LIB_TARGET_Leros_LerosTARGETSTREAMER_H
 
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/Support/FormattedStream.h"
 
 namespace llvm {
 

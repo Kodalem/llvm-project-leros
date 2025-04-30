@@ -20,8 +20,10 @@
 #include "LerosRegisterInfo.h"
 #include "MCTargetDesc/LerosMCTargetDesc.h"
 #include "llvm/CodeGen/SelectionDAGTargetInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"\
 #include <string>
+#include "llvm/CodeGen/TargetFrameLowering.h"
+
 
 #define GET_SUBTARGETINFO_HEADER
 #include "LerosGenSubtargetInfo.inc"
@@ -64,7 +66,8 @@ public:
   MVT getXLenVT() const { return XLenVT; }
   unsigned getXLen() const { return XLen; }
 
-private:
+protected:
+  bool hasFPImpl(const MachineFunction &MF) const;
 };
 
 } // end namespace llvm

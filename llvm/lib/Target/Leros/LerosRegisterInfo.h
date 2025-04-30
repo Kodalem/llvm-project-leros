@@ -15,6 +15,7 @@
 #define LLVM_LIB_TARGET_Leros_LerosREGISTERINFO_H
 
 #include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/ADT/BitVector.h"
 
 #define GET_REGINFO_HEADER
 #include "LerosGenRegisterInfo.inc"
@@ -34,13 +35,16 @@ struct LerosRegisterInfo : public LerosGenRegisterInfo {
 
   bool isConstantPhysReg(unsigned PhysReg) const;
 
+  BitVector getNumRegs() const{
+    return BitVector(Leros::GPRRegClass.getNumRegs());
+  }
   BitVector getReservedRegs(const MachineFunction &MF) const override;
 
-  void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
+  bool eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
                            unsigned FIOperandNum,
                            RegScavenger *RS = nullptr) const override;
 
-  unsigned getFrameRegister(const MachineFunction &MF) const override;
+  Register getFrameRegister(const MachineFunction &MF) const override;
 
   bool requiresRegisterScavenging(const MachineFunction &MF) const override {
     return true;

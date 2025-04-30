@@ -9,7 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Leros.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 
 namespace llvm {
 

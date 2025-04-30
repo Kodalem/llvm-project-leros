@@ -17,6 +17,8 @@
 #include "MCTargetDesc/LerosMCTargetDesc.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/TargetLowering.h"
+#include "llvm/MC/MCContext.h"
+#include "Leros.h"
 
 namespace llvm {
 

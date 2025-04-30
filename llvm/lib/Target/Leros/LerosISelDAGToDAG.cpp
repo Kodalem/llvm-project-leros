@@ -191,6 +191,18 @@ void LerosDAGToDAGISel::doPeepholeLoadStoreADDI() {
 /// createLerosISelDag - This pass converts a Lerosalized DAG into a
 /// Leros-specific DAG, ready for instruction scheduling.
 ///
+namespace {
+// Legacy wrapper class to provide a FunctionPass interface
+class LerosDAGToDAGISelLegacy : public llvm::SelectionDAGISelLegacy {
+public:
+  static char ID;
+  explicit LerosDAGToDAGISelLegacy(llvm::LerosTargetMachine &TM)
+      : SelectionDAGISelLegacy(ID, std::make_unique<llvm::LerosDAGToDAGISel>(TM)) {}
+};
+} // end anonymous namespace
+
+char LerosDAGToDAGISelLegacy::ID = 0;
+
 llvm::FunctionPass *llvm::createLerosISelDag(LerosTargetMachine &TM) {
-  return new LerosDAGToDAGISel(TM);
+  return new LerosDAGToDAGISelLegacy(TM);
 }

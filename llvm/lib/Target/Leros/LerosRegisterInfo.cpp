@@ -62,7 +62,7 @@ BitVector LerosRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   return Reserved;
 }
 
-void LerosRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+bool LerosRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                             int SPAdj, unsigned FIOperandNum,
                                             RegScavenger *RS) const {
   assert(SPAdj == 0 && "Unexpected non-zero SPAdj value");
@@ -118,7 +118,7 @@ bool LerosRegisterInfo::isConstantPhysReg(unsigned PhysReg) const {
   return false;
 }
 
-unsigned LerosRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
+Register LerosRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   const TargetFrameLowering *TFI = getFrameLowering(MF);
   return TFI->hasFP(MF) ? Leros::R2 : Leros::R1;
 }

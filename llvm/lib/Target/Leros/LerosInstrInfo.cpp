@@ -23,7 +23,8 @@
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/ADT/ArrayRef.h"
 
 #define GET_INSTRINFO_CTOR_DTOR
 #include "LerosGenInstrInfo.inc"

@@ -29,9 +29,10 @@ class LerosTargetMachine : public CodeGenTargetMachineImpl {
 
 public:
   LerosTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
-                     StringRef FS, const TargetOptions &Options,
-                     std::optional<Reloc::Model> RM, std::optional<CodeModel::Model> CM,
-                     CodeGenOptLevel OL, bool JIT);
+                   StringRef FS, const TargetOptions &Options,
+                   std::optional<Reloc::Model> RM,
+                   std::optional<CodeModel::Model> CM,
+                   CodeGenOptLevel OL, bool JIT);
 
   const TargetSubtargetInfo *getSubtargetImpl(const Function &) const {
     return &Subtarget;

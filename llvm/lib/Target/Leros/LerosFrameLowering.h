@@ -47,6 +47,7 @@ public:
   MachineBasicBlock::iterator
   eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator MI) const override;
+  bool hasFPImpl(const MachineFunction &MF) const;
 
 protected:
   const LerosSubtarget &STI;
