@@ -1,115 +1,113 @@
 //===- Leros.cpp ----------------------------------------------------------===//
 //
-//                             The LLVM Linker
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
-#include "InputFiles.h"
+#include "Symbols.h"
+#include "SyntheticSections.h"
 #include "Target.h"
+#include "lld/Common/ErrorHandler.h"
+#include "llvm/Object/ELFObjectFile.h"
+#include "llvm/Support/Endian.h"
 
 using namespace llvm;
-using namespace llvm::object;
 using namespace llvm::support::endian;
 using namespace llvm::ELF;
 using namespace lld;
 using namespace lld::elf;
+using namespace llvm::object;
 
 namespace {
-
 class Leros final : public TargetInfo {
 public:
-  Leros();
-  virtual uint32_t calcEFlags() const override;
-  RelExpr getRelExpr(RelType Type, const Symbol &S,
-                     const uint8_t *Loc) const override;
-  void relocateOne(uint8_t *Loc, RelType Type, uint64_t Val) const override;
+  Leros(Ctx &);
+  uint32_t calcEFlags() const override;
+  RelExpr getRelExpr(RelType type, const Symbol &s,
+                     const uint8_t *loc) const override;
+  void relocate(uint8_t *loc, const Relocation &rel,
+                uint64_t val) const override;
 };
+} // namespace
 
-} // end anonymous namespace
-
-Leros::Leros() { NoneRel = R_LEROS_NONE; }
-
-static uint32_t getEFlags(InputFile *F) {
-  if (Config->Is64)
-    return cast<ObjFile<ELF64LE>>(F)->getObj().getHeader()->e_flags;
-  return cast<ObjFile<ELF32LE>>(F)->getObj().getHeader()->e_flags;
+Leros::Leros(Ctx &ctx) : TargetInfo(ctx) {
+  //noneRel = R_LEROS_NONE;
+  defaultCommonPageSize = 1024; // 1KB page size
+  defaultMaxPageSize = 8192;    // 8KB max page size
+  defaultImageBase = 0;
 }
 
 uint32_t Leros::calcEFlags() const {
-  assert(!ObjectFiles.empty());
-  uint32_t Target = getEFlags(ObjectFiles.front());
-  return Target;
+  if (ctx.objectFiles.empty())
+    return 0;
+
+  // Use the e_flags from the first object file
+  const InputFile *f = ctx.objectFiles[0];
+  if (f->ekind == ELF64LEKind)
+    return cast<ObjFile<ELF64LE>>(f)->getObj().getHeader().e_flags;
+return cast<ObjFile<ELF32LE>>(f)->getObj().getHeader().e_flags;
 }
 
-RelExpr Leros::getRelExpr(const RelType Type, const Symbol &S,
-                          const uint8_t *Loc) const {
-  switch (Type) {
+RelExpr Leros::getRelExpr(RelType type, const Symbol &s,
+                          const uint8_t *loc) const {
+  switch (type) {
   case R_LEROS_BYTE0:
   case R_LEROS_BYTE1:
   case R_LEROS_BYTE2:
   case R_LEROS_BYTE3:
+  case R_LEROS_32:
+  case R_LEROS_64:
     return R_ABS;
   case R_LEROS_BRANCH:
     return R_PC;
+  case R_LEROS_NONE:
+    return R_NONE;
   default:
-    return R_ABS;
+    Err(ctx) << getErrorLoc(ctx, loc) << "unknown relocation (" << type.v
+             << ") against symbol " << &s;
+    return R_NONE;
   }
 }
 
-void Leros::relocateOne(uint8_t *Loc, const RelType Type,
-                        const uint64_t Val) const {
-  uint16_t Insn = read16le(Loc) & 0xFF00;
+void Leros::relocate(uint8_t *loc, const Relocation &rel, uint64_t val) const {
+  uint16_t insn = read16le(loc) & 0xFF00;
 
-  // Todo: Check alignment for byte relocations, if the opcode is related to
-  // control flow
-
-  switch (Type) {
+  switch (rel.type) {
   case R_LEROS_32:
-    write32le(Loc, Val);
+    write32le(loc, val);
     return;
   case R_LEROS_64:
-    write64le(Loc, Val);
+    write64le(loc, val);
     return;
-  case R_LEROS_BYTE0: {
-    checkInt(Loc, static_cast<int64_t>(Val), 32, Type);
-    Insn |= Val & 0xFF;
+  case R_LEROS_BYTE0:
+    checkInt(ctx, loc, static_cast<int64_t>(val), 32, rel);
+    insn |= val & 0xFF;
     break;
-  }
-  case R_LEROS_BYTE1: {
-    checkInt(Loc, static_cast<int64_t>(Val), 32, Type);
-    Insn |= (Val >> 8) & 0xFF;
+  case R_LEROS_BYTE1:
+    checkInt(ctx, loc, static_cast<int64_t>(val), 32, rel);
+    insn |= (val >> 8) & 0xFF;
     break;
-  }
-  case R_LEROS_BYTE2: {
-    checkInt(Loc, static_cast<int64_t>(Val), 32, Type);
-    Insn |= (Val >> 16) & 0xFF;
+  case R_LEROS_BYTE2:
+    checkInt(ctx, loc, static_cast<int64_t>(val), 32, rel);
+    insn |= (val >> 16) & 0xFF;
     break;
-  }
-  case R_LEROS_BYTE3: {
-    checkInt(Loc, static_cast<int64_t>(Val), 32, Type);
-    Insn |= (Val >> 24) & 0xFF;
+  case R_LEROS_BYTE3:
+    checkInt(ctx, loc, static_cast<int64_t>(val), 32, rel);
+    insn |= (val >> 24) & 0xFF;
     break;
-  }
-  case R_LEROS_BRANCH: {
+  case R_LEROS_BRANCH:
     // Verify that it is representable as a 13-bit immediate,
     // with lsb = 0
-    checkInt(Loc, static_cast<int64_t>(Val), 13, Type);
-    checkAlignment(Loc, Val, 2, Type);
-    Insn |= (Val >> 1) & 0xfff;
+    checkInt(ctx, loc, static_cast<int64_t>(val), 13, rel);
+    checkAlignment(ctx, loc, val, 2, rel);
+    insn |= (val >> 1) & 0xFFF;
     break;
-  }
   default:
-    error(getErrorLocation(Loc) +
-          "unimplemented relocation: " + toString(Type));
-    return;
+    llvm_unreachable("unknown relocation");
   }
-  write16le(Loc, Insn);
+  write16le(loc, insn);
 }
 
-TargetInfo *elf::getLerosTargetInfo() {
-  static Leros Target;
-  return &Target;
-}
+void elf::setLerosTargetInfo(Ctx &ctx) { ctx.target.reset(new Leros(ctx)); }
