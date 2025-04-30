@@ -88,7 +88,7 @@ private:
   bool CanLowerReturn(CallingConv::ID CallConv, MachineFunction &MF,
                       bool IsVarArg,
                       const SmallVectorImpl<ISD::OutputArg> &Outs,
-                      LLVMContext &Context) const override;
+                      LLVMContext &Context) const;
 
   MachineBasicBlock *EmitSET(MachineInstr &MI, MachineBasicBlock *BB) const;
   MachineBasicBlock *EmitUSET(MachineInstr &MI, MachineBasicBlock *BB) const;

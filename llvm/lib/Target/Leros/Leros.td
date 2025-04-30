@@ -16,12 +16,12 @@ include "llvm/Target/Target.td"
 def Feature64Bit
     : SubtargetFeature<"64bit", "HasLeros64", "true", "Implements Leros64">;
 def IsRV64 : Predicate<"Subtarget->is64Bit()">,
-                       AssemblerPredicate<"Feature64Bit">;
+                       AssemblerPredicate<(all_of Feature64Bit)>;
 def IsRV32 : Predicate<"!Subtarget->is64Bit()">,
-                       AssemblerPredicate<"!Feature64Bit">;
+                       AssemblerPredicate<(all_of (not Feature64Bit))>;
 
-def Leros32           : HwMode<"-64bit">;
-def Leros64           : HwMode<"+64bit">;
+def Leros32 : HwMode<"-64bit", []>;
+def Leros64 : HwMode<"+64bit", []>;
 
 /* @todo: These are not subtarget specific features, but rather our processor model specifications
 def Fe

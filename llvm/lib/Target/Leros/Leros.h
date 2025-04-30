@@ -16,6 +16,7 @@
 #define LLVM_LIB_TARGET_Leros_Leros_H
 
 #include "LerosBaseInfo.h"
+#include "llvm/Pass.h"
 
 namespace llvm {
 class FunctionPass;

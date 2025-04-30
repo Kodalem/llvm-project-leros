@@ -45,7 +45,7 @@ public:
 
   int getMoveF64FrameIndex() {
     if (MoveF64FrameIndex == -1)
-      MoveF64FrameIndex = MF.getFrameInfo().CreateStackObject(8, 8, false);
+      MoveF64FrameIndex = MF.getFrameInfo().CreateStackObject(8, Align(8), false);
     return MoveF64FrameIndex;
   }
 };

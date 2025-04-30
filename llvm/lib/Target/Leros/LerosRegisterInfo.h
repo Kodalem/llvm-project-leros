@@ -32,7 +32,7 @@ struct LerosRegisterInfo : public LerosGenRegisterInfo {
 
   const uint32_t *getNoPreservedMask() const override;
 
-  bool isConstantPhysReg(unsigned PhysReg) const override;
+  bool isConstantPhysReg(unsigned PhysReg) const;
 
   BitVector getReservedRegs(const MachineFunction &MF) const override;
 

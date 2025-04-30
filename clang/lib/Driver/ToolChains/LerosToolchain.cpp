@@ -10,14 +10,16 @@
 
 #include "LerosToolchain.h"
 #include "CommonArgs.h"
-#include "InputInfo.h"
 #include "clang/Driver/Compilation.h"
+#include "clang/Driver/Driver.h"
+#include "clang/Driver/InputInfo.h"
 #include "clang/Driver/Options.h"
 #include "llvm/Option/ArgList.h"
+#include "llvm/Support/FileSystem.h"
+#include <memory>
 
 using namespace clang::driver;
 using namespace clang::driver::toolchains;
-using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
@@ -33,11 +35,11 @@ ToolChain::RuntimeLibType LerosToolChain::GetDefaultRuntimeLibType() const {
   return ToolChain::RLT_CompilerRT;
 }
 
-void Leros::Linker::ConstructJob(Compilation &C, const JobAction &JA,
-                                 const InputInfo &Output,
-                                 const InputInfoList &Inputs,
-                                 const ArgList &Args,
-                                 const char *LinkingOutput) const {
+void clang::driver::tools::Leros::Linker::ConstructJob(Compilation &C, const JobAction &JA,
+                                                      const InputInfo &Output,
+                                                      const InputInfoList &Inputs,
+                                                      const ArgList &Args,
+                                                      const char *LinkingOutput) const {
   const ToolChain &ToolChain = getToolChain();
   std::string Linker = ToolChain.GetProgramPath(getShortName());
   ArgStringList CmdArgs;
@@ -58,7 +60,8 @@ void Leros::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
-  C.addCommand(llvm::make_unique<Command>(JA, *this, Args.MakeArgString(Linker),
-                                          CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>( // Use std::make_unique
+      JA, *this, ResponseFileSupport::None(), // Add ResponseFileSupport::None()
+      Args.MakeArgString(Linker), CmdArgs, Inputs));
 }
 // Leros tools end.

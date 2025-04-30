@@ -17,28 +17,30 @@
 #include "LerosSubtarget.h"
 #include "MCTargetDesc/LerosMCTargetDesc.h"
 #include "llvm/CodeGen/SelectionDAGTargetInfo.h"
+#include "llvm/CodeGen/CodeGenTargetMachineImpl.h"
+#include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
-class LerosTargetMachine : public LLVMTargetMachine {
+class LerosTargetMachine : public CodeGenTargetMachineImpl {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   LerosSubtarget Subtarget;
 
 public:
   LerosTargetMachine(const Target &T, const Triple &TT, StringRef CPU,
                      StringRef FS, const TargetOptions &Options,
-                     Optional<Reloc::Model> RM, Optional<CodeModel::Model> CM,
-                     CodeGenOpt::Level OL, bool JIT);
+                     std::optional<Reloc::Model> RM, std::optional<CodeModel::Model> CM,
+                     CodeGenOptLevel OL, bool JIT);
 
-  const LerosSubtarget *getSubtargetImpl(const Function &) const override {
+  const TargetSubtargetInfo *getSubtargetImpl(const Function &) const {
     return &Subtarget;
   }
 
   TargetPassConfig *
-  createPassConfig(llvm::legacy::PassManagerBase &PM) override;
+  createPassConfig(llvm::legacy::PassManagerBase &PM) ;
 
-  TargetLoweringObjectFile *getObjFileLowering() const override {
+  TargetLoweringObjectFile *getObjFileLowering() const {
     return TLOF.get();
   }
 };

@@ -21,7 +21,6 @@
 #include "MCTargetDesc/LerosMCTargetDesc.h"
 #include "llvm/CodeGen/SelectionDAGTargetInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/Support/MachineValueType.h"
 #include <string>
 
 #define GET_SUBTARGETINFO_HEADER

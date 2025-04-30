@@ -25,7 +25,7 @@ class LerosFrameLowering : public TargetFrameLowering {
 public:
   explicit LerosFrameLowering(const LerosSubtarget &STI)
       : TargetFrameLowering(StackGrowsDown,
-                            /*StackAlignment=*/16,
+                            /*StackAlignment=*/Align(/*StackAlignment=*/16),
                             /*LocalAreaOffset=*/0),
         STI(STI) {}
 
@@ -35,12 +35,12 @@ public:
   void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
 
   int getFrameIndexReference(const MachineFunction &MF, int FI,
-                             unsigned &FrameReg) const override;
+                             unsigned &FrameReg) const;
 
   void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
                             RegScavenger *RS) const override;
 
-  bool hasFP(const MachineFunction &MF) const override;
+  bool hasFP(const MachineFunction &MF) const;
 
   bool hasReservedCallFrame(const MachineFunction &MF) const override;
 

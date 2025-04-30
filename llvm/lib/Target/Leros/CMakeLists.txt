@@ -32,3 +32,22 @@ add_subdirectory(InstPrinter)
 add_subdirectory(MCTargetDesc)
 add_subdirectory(TargetInfo)
 add_subdirectory(Disassembler)
+
+# Aggregate all the components under the Leros target name.
+add_llvm_component_group(Leros LINK_COMPONENTS
+        LerosCodeGen
+        LerosAsmParser
+        LerosDisassembler
+        LerosInstPrinter
+        LerosMCTargetDesc
+        LerosTargetInfo
+        LerosAsmPrinter
+        LerosISelDAGToDAG
+        LerosFrameLowering
+        LerosISelLowering
+        LerosMachineFunctionInfo
+        LerosRegisterInfo
+        LerosSubtarget
+        LerosTargetObjectFile
+        LerosUseAccumulator
+)

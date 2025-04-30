@@ -33,7 +33,7 @@ class LerosDAGToDAGISel : public SelectionDAGISel {
 public:
   LerosDAGToDAGISel(LerosTargetMachine &TM) : SelectionDAGISel(TM) {}
 
-  StringRef getPassName() const override {
+  StringRef getPassName() const {
     return "Leros DAG->DAG Pattern Instruction Selection";
   }
 

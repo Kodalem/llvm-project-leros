@@ -6920,7 +6920,7 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
         break;
       case llvm::Triple::leros32:
       case llvm::Triple::leros64:
-        TC = llvm::make_unique<toolchains::LerosToolChain>(*this, Target, Args);
+        TC = std::make_unique<toolchains::LerosToolChain>(*this, Target, Args);
        break;
       case llvm::Triple::msp430:
         TC =

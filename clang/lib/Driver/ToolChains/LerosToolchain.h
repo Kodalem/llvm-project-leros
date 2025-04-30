@@ -11,10 +11,12 @@
 #ifndef LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_Leros_H
 #define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_Leros_H
 
-#include "Gnu.h"
-#include "InputInfo.h"
-#include "clang/Driver/Tool.h"
+#include "llvm/Option/ArgList.h"
+#include "llvm/Support/Compiler.h"
+#include "clang/Driver/InputInfo.h"
 #include "clang/Driver/ToolChain.h"
+#include "clang/Driver/Tool.h"
+#include "ToolChains/Gnu.h" // Add this include
 
 namespace clang {
 namespace driver {
@@ -37,9 +39,9 @@ public:
 
 namespace tools {
 namespace Leros {
-class LLVM_LIBRARY_VISIBILITY Linker : public GnuTool {
+class LLVM_LIBRARY_VISIBILITY Linker : public Tool {
 public:
-  Linker(const ToolChain &TC) : GnuTool("Leros::Linker", "ld.lld", TC) {}
+  Linker(const ToolChain &TC) : Tool("Leros::Linker", "ld.lld", TC) {}
   bool hasIntegratedCPP() const override { return false; }
   bool isLinkJob() const override { return true; }
   void ConstructJob(Compilation &C, const JobAction &JA,
