@@ -515,6 +515,9 @@ std::unique_ptr<TargetCodeGenInfo>
 createLanaiTargetCodeGenInfo(CodeGenModule &CGM);
 
 std::unique_ptr<TargetCodeGenInfo>
+createLerosTargetCodeGenInfo(CodeGenModule &CGM);
+
+std::unique_ptr<TargetCodeGenInfo>
 createLoongArchTargetCodeGenInfo(CodeGenModule &CGM, unsigned GRLen,
                                  unsigned FLen);
 
