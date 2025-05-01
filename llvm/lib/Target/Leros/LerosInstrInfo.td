@@ -511,6 +511,11 @@ class SelectCC_rrr<RegisterClass valty, RegisterClass cmpty>
 
 def Select_GPR_Using_CC_GPR : SelectCC_rrr<GPR, GPR>;
 
+// Pattern to match the ISD::SELECT operation and map it to the Leros pseudo
+def : Pat<(select GPR:$cond, GPR:$truev, GPR:$falsev),
+          (Select_GPR_Using_CC_GPR GPR:$cond, GPR:$truev, GPR:$falsev)>;
+
+
 //  ----------- Memory load/store patterns -----------
 
 // Loads

@@ -15,6 +15,9 @@
 #include "LerosTargetMachine.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
+#include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/CodeGen/SelectionDAG.h"
+#include "llvm/Support/KnownBits.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -185,6 +188,43 @@ void LerosDAGToDAGISel::doPeepholeLoadStoreADDI() {
     if (Base.getNode()->use_empty())
       CurDAG->RemoveDeadNode(Base.getNode());
   }
+}
+// Predicate function for the IsOrAdd PatFrag in LerosInstrInfo.td
+// Checks if an OR operation is equivalent to an ADD operation.
+// This is true if (A | B) == (A + B), which happens when (A & B) == 0.
+bool isOrEquivalentToAdd(const SDNode *N, SelectionDAG &DAG) {
+  // Ensure this is an OR node with two operands
+  if (!N || N->getOpcode() != ISD::OR || N->getNumOperands() != 2)
+    return false;
+
+  SDValue Op0 = N->getOperand(0);
+  SDValue Op1 = N->getOperand(1);
+
+  // Use KnownBits analysis to check if the operands' set bits might overlap.
+  // If we know that (Op0 & Op1) == 0, then OR is equivalent to ADD.
+  KnownBits KnownOp0 = DAG.computeKnownBits(Op0);
+  KnownBits KnownOp1 = DAG.computeKnownBits(Op1);
+
+  // Check if the bits known to be zero in one operand cover all the bits
+  // possibly set in the other operand.
+  if ((KnownOp0.Zero | KnownOp1.Zero).isAllOnes()) {
+    // If the union of zero bits covers the entire width,
+    // then (A & B) must be 0.
+    return true;
+  }
+
+  // A simpler, less precise check:
+  // if ((KnownOp0.One & KnownOp1.One).isZero()) {
+  //    // If there are no bits known to be set in *both* operands,
+  //    // they *might* be non-overlapping. This isn't strictly sufficient
+  //    // on its own but can be part of the check.
+  //    // return true; // Potentially, needs more checks
+  // }
+
+
+  // Fallback: If KnownBits analysis is inconclusive, assume they might overlap.
+  LLVM_DEBUG(dbgs() << "isOrEquivalentToAdd: KnownBits inconclusive for node: "; N->dump(&DAG); dbgs() << "\n");
+  return false;
 }
 } // namespace llvm
 
