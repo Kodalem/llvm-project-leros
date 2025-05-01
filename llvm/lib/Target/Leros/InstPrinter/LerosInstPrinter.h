@@ -27,6 +27,9 @@ public:
                    const MCRegisterInfo &MRI)
       : MCInstPrinter(MAI, MII, MRI) {}
 
+  void printInstruction(const MCInst *MI, uint64_t Address, raw_ostream &O);
+  const char *getRegisterName(MCRegister Reg);
+
   // Add this line to declare the printInst method
   void printInst(const MCInst *MI, uint64_t Address, StringRef Annot,
                  const MCSubtargetInfo &STI, raw_ostream &O) override;
@@ -36,6 +39,7 @@ public:
   bool printAliasInstr(const MCInst *MI, raw_ostream &O);
 
 private:
+  std::pair<const char *, uint32_t> getMnemonic(const MCInst &MI);
   void printCondCode(const MCInst *MI, unsigned OpNum, raw_ostream &O);
   void printAddrModeMemSrc(const MCInst *MI, unsigned OpNum, raw_ostream &O);
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);

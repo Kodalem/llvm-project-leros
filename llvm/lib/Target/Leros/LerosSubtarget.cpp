@@ -36,7 +36,8 @@ void LerosSubtarget::initializeSubtargetDependencies(StringRef CPU,
       CPUName = "generic-leros32";
     }
   }
-  ParseSubtargetFeatures(CPUName, FS);
+  // Pass CPUName as both CPU and TuneCPU parameters
+  ParseSubtargetFeatures(CPUName, CPUName, FS);
 }
 
 bool LerosFrameLowering::hasFPImpl(const MachineFunction &MF) const {

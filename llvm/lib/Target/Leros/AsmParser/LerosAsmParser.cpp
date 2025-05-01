@@ -18,8 +18,10 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCParser/MCAsmLexer.h"
+#include "llvm/MC/MCParser/MCAsmParser.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
+#include "llvm/MC/MCParser/MCAsmParserExtension.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCStreamer.h" // Ensure MCStreamer header is included
 #include "llvm/MC/MCSubtargetInfo.h"
@@ -49,7 +51,13 @@ class LerosAsmParser : public MCTargetAsmParser {
                                uint64_t &ErrorInfo,
                                bool MatchingInlineAsm) override;
 
-  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
+  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override {
+    ParseStatus Status = tryParseRegister(Reg, StartLoc, EndLoc);
+    return !Status.isSuccess();
+  }
+  ParseStatus tryParseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
+  void convertToMapAndConstraints(unsigned Kind, unsigned &OpInfo,
+                                  const MCExpr *&Expr);
 
   bool parseInstruction(ParseInstructionInfo &Info, StringRef Name,
                         SMLoc NameLoc, OperandVector &Operands) override;
@@ -62,6 +70,7 @@ class LerosAsmParser : public MCTargetAsmParser {
 
   bool parseOperand(OperandVector &Operands, StringRef Mnemonic);
   ParseStatus parseImmediate(OperandVector &Operands);
+  bool ParseRegister(unsigned &RegNo, SMLoc &StartLoc, SMLoc &EndLoc);
   ParseStatus parseRegister(OperandVector &Operands);
   ParseStatus parseBareSymbol(OperandVector &Operands);
 
@@ -130,6 +139,8 @@ public:
     case Token:
       Tok = o.Tok;
       break;
+    case Memory:
+      break;
     }
   }
 
@@ -159,6 +170,9 @@ public:
       break;
     case Token:
       OS << "'" << getToken() << "'";
+      break;
+    case Memory:
+      OS << "<memory>";
       break;
     }
   }
@@ -287,7 +301,6 @@ public:
     assert(Kind == Token && "Invalid type access!");
     return Tok;
   }
-  bool isMem() const override { return false; }
 
   void addRegOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
@@ -330,33 +343,52 @@ public:
 #define GET_MATCHER_IMPLEMENTATION
 #include "LerosGenAsmMatcher.inc"
 
-bool LerosAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
-                                   SMLoc &EndLoc) {
+ParseStatus tryParseRegister(MCRegister &Reg, SMLoc &StartLoc,
+                            SMLoc &EndLoc);
+
+ParseStatus LerosAsmParser::tryParseRegister(MCRegister &Reg, SMLoc &StartLoc,
+                                            SMLoc &EndLoc) {
   const AsmToken &Tok = getParser().getTok();
   StartLoc = Tok.getLoc();
   EndLoc = Tok.getEndLoc();
-  RegNo = 0;
-  StringRef Name = getLexer().getTok().getIdentifier();
 
-  if (!MatchRegisterName(Name)) {
-    getParser().Lex(); // Eat identifier token.
-    return false;
-  }
+  // Check if this is an identifier
+  if (Tok.isNot(AsmToken::Identifier))
+    return ParseStatus::NoMatch;
 
-  return Error(StartLoc, "invalid register name");
+  StringRef Name = Tok.getString();
+
+  // Try to match the register name
+  Reg = MatchRegisterName(Name);
+  if (Reg == 0)
+    return ParseStatus::NoMatch;
+
+  getParser().Lex(); // Consume the register token only on success
+  return ParseStatus::Success;
 }
 
-OperandMatchResultTy LerosAsmParser::parseRegister(OperandVector &Operands) {
+void convertToMapAndConstraints(unsigned Kind,
+                               const OperandVector &Operands,
+                               MCRegister &RegFirst, MCRegister &RegLast,
+                               SMLoc &StartLoc, SMLoc &EndLoc,
+                               SmallVectorImpl<std::unique_ptr<MCParsedAsmOperand>> &Rewritten,
+                               uint64_t &ErrorInfo,
+                               bool &HasMatchingFeature) {
+  // This is usually empty for simple architectures
+  return;
+}
+
+ParseStatus LerosAsmParser::parseRegister(OperandVector &Operands) {
   switch (getLexer().getKind()) {
   default:
-    return MatchOperand_NoMatch;
+    return ParseStatus::NoMatch;
   case AsmToken::Identifier:
     StringRef Name = getLexer().getTok().getIdentifier();
     unsigned RegNo = MatchRegisterName(Name);
     if (RegNo == 0) {
       RegNo = MatchRegisterAltName(Name);
       if (RegNo == 0) {
-        return MatchOperand_NoMatch;
+        return ParseStatus::NoMatch;
       }
     }
     getLexer().Lex(); // Eat register token.
@@ -364,25 +396,25 @@ OperandMatchResultTy LerosAsmParser::parseRegister(OperandVector &Operands) {
     SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
     Operands.push_back(LerosOperand::createReg(RegNo, S, E));
   }
-  return MatchOperand_Success;
+  return ParseStatus::Success;
 }
 
 bool LerosAsmParser::parseOperand(OperandVector &Operands, StringRef Mnemonic) {
   // Check if the current operand has a custom associated parser, if so, try to
   // custom parse the operand, or fallback to the general approach.
-  OperandMatchResultTy Result =
-      MatchOperandParserImpl(Operands, Mnemonic, /*ParseForAllFeatures=*/true);
-  if (Result == MatchOperand_Success)
-    return false;
-  if (Result == MatchOperand_ParseFail)
+  ParseStatus Result = MatchOperandParserImpl(Operands, Mnemonic, /*ParseForAllFeatures=*/true);
+
+  if (Result.isSuccess())
+    return true;
+  if (Result.isFailure())
     return true;
 
   // Attempt to parse as a register operand.
-  if (parseRegister(Operands) == MatchOperand_Success)
+  if (parseRegister(Operands).isSuccess())
     return false;
 
   // Attempt to parse as an immediate operand.
-  if (parseImmediate(Operands) == MatchOperand_Success)
+  if (parseImmediate(Operands).isSuccess())
     return false;
 
   // Finally, try to parse bare symbol.
@@ -390,45 +422,45 @@ bool LerosAsmParser::parseOperand(OperandVector &Operands, StringRef Mnemonic) {
   return true;
 }
 
-OperandMatchResultTy LerosAsmParser::parseBareSymbol(OperandVector &Operands) {
+ParseStatus LerosAsmParser::parseBareSymbol(OperandVector &Operands) {
   SMLoc S = getLoc();
   SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
   const MCExpr *Res;
 
   if (getLexer().getKind() != AsmToken::Identifier)
-    return MatchOperand_NoMatch;
+    return ParseStatus::NoMatch;
 
   StringRef Identifier;
   if (getParser().parseIdentifier(Identifier))
-    return MatchOperand_ParseFail;
+    return ParseStatus::Failure;
 
   MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
   Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
   Operands.push_back(LerosOperand::createImm(Res, S, E));
-  return MatchOperand_Success;
+  return ParseStatus::Success;
 }
 
-OperandMatchResultTy LerosAsmParser::parseImmediate(OperandVector &Operands) {
+ParseStatus LerosAsmParser::parseImmediate(OperandVector &Operands) {
   SMLoc S = getLoc();
   SMLoc E = SMLoc::getFromPointer(S.getPointer() - 1);
   const MCExpr *Res;
 
   switch (getLexer().getKind()) {
   default:
-    return MatchOperand_NoMatch;
+    return ParseStatus::NoMatch;
   case AsmToken::LParen:
   case AsmToken::Minus:
   case AsmToken::Plus:
   case AsmToken::Integer:
   case AsmToken::String:
     if (getParser().parseExpression(Res))
-      return MatchOperand_ParseFail;
+      return ParseStatus::Failure;
     break;
   case AsmToken::Identifier: {
     StringRef Identifier;
     // This calls parseIdentifier twice, maybe check MCAsmParser::parsePrimaryExpr?
     if (getParser().parseIdentifier(Identifier))
-      return MatchOperand_ParseFail;
+      return ParseStatus::Failure;
     MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
     Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, getContext());
     break;
@@ -437,10 +469,11 @@ OperandMatchResultTy LerosAsmParser::parseImmediate(OperandVector &Operands) {
   E = SMLoc::getFromPointer(getLoc().getPointer() - 1);
 
   Operands.push_back(LerosOperand::createImm(Res, S, E));
-  return MatchOperand_Success;
+  return ParseStatus::Success;
 }
 
-bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name, SMLoc NameLoc, OperandVector &Operands) {
+bool LerosAsmParser::parseInstruction(ParseInstructionInfo &Info, StringRef Name,
+                                     SMLoc NameLoc, OperandVector &Operands) {
   // First operand is token for instruction
   Operands.push_back(LerosOperand::createToken(Name, NameLoc));
 
@@ -462,7 +495,7 @@ bool ParseInstruction(ParseInstructionInfo &Info, StringRef Name, SMLoc NameLoc,
     }
   }
 
-  getParser().Lex(); // Consume the EndOfStatement.
+  Lex(); // Consume the EndOfStatement.
   return false;
 }
 
@@ -474,11 +507,11 @@ unsigned LerosAsmParser::validateTargetOperandClass(MCParsedAsmOperand &AsmOp,
   return Match_Success;
 }
 
-bool LerosAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
-                                             OperandVector &Operands,
-                                             MCStreamer &Out,
-                                             uint64_t &ErrorInfo,
-                                             bool MatchingInlineAsm) {
+bool LerosAsmParser::matchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
+                                          OperandVector &Operands,
+                                          MCStreamer &Out,
+                                          uint64_t &ErrorInfo,
+                                          bool MatchingInlineAsm) {
   MCInst Inst;
 
   auto Result =
@@ -570,8 +603,42 @@ bool LerosAsmParser::classifySymbolRef(const MCExpr *Expr,
 
 } // namespace
 
+namespace llvm {
+
+LerosAsmParser::LerosAsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
+                               const MCInstrInfo &MII, const MCTargetOptions &Options)
+    : MCTargetAsmParser(Options, STI, MII), LerosParser(Parser) {}
+
+bool LerosAsmParser::parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) {
+  ParseStatus Status = tryParseRegister(Reg, StartLoc, EndLoc);
+  return !Status.isSuccess();
+}
+
+ParseStatus LerosAsmParser::tryParseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) {
+  const AsmToken &Tok = getParser().getTok();
+  StartLoc = Tok.getLoc();
+  EndLoc = Tok.getEndLoc();
+
+  if (Tok.isNot(AsmToken::Identifier))
+    return ParseStatus::NoMatch;
+
+  StringRef Name = Tok.getString();
+  Reg = MatchRegisterName(Name);
+  if (Reg == 0)
+    return ParseStatus::NoMatch;
+
+  getParser().Lex(); // Consume the register token
+  return ParseStatus::Success;
+}
+
+void LerosAsmParser::convertToMapAndConstraints(unsigned Kind, const OperandVector &Operands) {
+  // Simple implementation for now
+}
+
+} // end namespace llvm
+
 extern "C" void LLVMInitializeLerosAsmParser() {
-  RegisterMCAsmParser<LerosAsmParser> X(getTheLeros32Target());
-  RegisterMCAsmParser<LerosAsmParser> Y(getTheLeros64Target());
+  RegisterMCAsmParser<llvm::LerosAsmParser> X(getTheLeros32Target());
+  RegisterMCAsmParser<llvm::LerosAsmParser> Y(getTheLeros64Target());
 }
 

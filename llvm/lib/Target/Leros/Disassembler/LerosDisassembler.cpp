@@ -162,6 +162,23 @@ static DecodeStatus decodeSImmOperandAndLsl(MCInst &Inst, uint64_t Imm,
   return MCDisassembler::Success;
 }
 
+namespace llvm {
+namespace MCD {
+// Disassembler operation codes
+enum {
+  OPC_ExtractField = 0,
+  OPC_FilterValue,
+  OPC_CheckField,
+  OPC_CheckPredicate,
+  OPC_Decode,
+  OPC_SoftFail,
+  OPC_Fail,
+  OPC_CheckPrefix,
+  OPC_TryDecode,
+};
+} // namespace MCD
+} // namespace llvm
+
 #include "LerosGenDisassemblerTables.inc"
 
 DecodeStatus LerosDisassembler::getInstruction(MCInst &MI, uint64_t &Size,

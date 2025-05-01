@@ -55,8 +55,7 @@ public:
                                     uint64_t Value, bool IsResolved) const override {
     return false;
   }
-
-  void LerosAsmBackend::relaxInstruction(MCInst &Inst, const MCSubtargetInfo &STI) const override {
+  void relaxInstruction(MCInst &Inst, const MCSubtargetInfo &STI) const override {
     return;
   }
 
@@ -152,7 +151,7 @@ void LerosAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
 }
 
 bool LerosAsmBackend::writeNopData(raw_ostream &OS, uint64_t Count,
-                                   const MCSubtargetInfo *STI) const override {
+                                   const MCSubtargetInfo *STI) const {
   unsigned nopLen = 2;
 
   if ((Count % nopLen) != 0)
