@@ -1,44 +1,43 @@
-# The LLVM Compiler Infrastructure
+# Leros LLVM/Clang Integration
 
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/llvm/llvm-project/badge)](https://securityscorecards.dev/viewer/?uri=github.com/llvm/llvm-project)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/8273/badge)](https://www.bestpractices.dev/projects/8273)
-[![libc++](https://github.com/llvm/llvm-project/actions/workflows/libcxx-build-and-test.yaml/badge.svg?branch=main&event=schedule)](https://github.com/llvm/llvm-project/actions/workflows/libcxx-build-and-test.yaml?query=event%3Aschedule)
+[![Leros](https://leros-dev.github.io/img/leros-logo.png)](https://leros-dev.github.io/)
 
-Welcome to the LLVM project!
+This repository contains the LLVM/Clang backend and related infrastructure for the [Leros](https://leros-dev.github.io/) processor architecture.
 
-This repository contains the source code for LLVM, a toolkit for the
-construction of highly optimized compilers, optimizers, and run-time
-environments.
+## ⚠️ Project Status: Broken
 
-The LLVM project has multiple components. The core of the project is
-itself called "LLVM". This contains all of the tools, libraries, and header
-files needed to process intermediate representations and convert them into
-object files. Tools include an assembler, disassembler, bitcode analyzer, and
-bitcode optimizer.
+**This repository is currently broken and not usable. Two major issues must be fixed:**
 
-C-like languages use the [Clang](https://clang.llvm.org/) frontend. This
-component compiles C, C++, Objective-C, and Objective-C++ code into LLVM bitcode
--- and from there into object files, using LLVM.
+### 1. TableGen Generates Invalid C/C++ Code
 
-Other components include:
-the [libc++ C++ standard library](https://libcxx.llvm.org),
-the [LLD linker](https://lld.llvm.org), and more.
+TableGen currently produces invalid code such as:
 
-## Getting the Source Code and Building LLVM
+```
+case 0: return !() && !();
+error: expected expression
+```
 
-Consult the
-[Getting Started with LLVM](https://llvm.org/docs/GettingStarted.html#getting-the-source-code-and-building-llvm)
-page for information on building and running LLVM.
+This cryptic error is triggered when a pseudo-instruction is defined with an **empty pattern list** (`[]`) in TableGen and is then used as the result (right-hand side) of a `Pat` pattern. TableGen expects any instruction or pseudo used in a pattern to have a non-empty pattern list describing how it should be matched or lowered. Failing to do so leads to broken generated C++ code and inscrutable compiler errors.
 
-For information on how to contribute to the LLVM project, please take a look at
-the [Contributing to LLVM](https://llvm.org/docs/Contributing.html) guide.
+### 2. Outdated Leros Clang Codebase
 
-## Getting in touch
+The entire Leros-specific Clang codebase is outdated and requires a careful update to be compatible with modern LLVM/Clang releases.
 
-Join the [LLVM Discourse forums](https://discourse.llvm.org/), [Discord
-chat](https://discord.gg/xS7Z362),
-[LLVM Office Hours](https://llvm.org/docs/GettingInvolved.html#office-hours) or
-[Regular sync-ups](https://llvm.org/docs/GettingInvolved.html#online-sync-ups).
+---
 
-The LLVM project has adopted a [code of conduct](https://llvm.org/docs/CodeOfConduct.html) for
-participants to all modes of communication within the project.
+## About Leros
+
+Leros is a simple stack-based processor designed for research and education. More information can be found at the [Leros website](https://leros-dev.github.io/).
+
+## Getting Involved
+
+- **Do not expect this repository to build or work until the above issues are resolved.**
+- Contributions to fix TableGen and update the Leros Clang backend are welcome.
+
+## Resources
+
+- [Leros Documentation](https://leros-dev.github.io/)
+- [LLVM Getting Started](https://llvm.org/docs/GettingStarted.html)
+- [LLVM Discourse forums](https://discourse.llvm.org/)
+
+
