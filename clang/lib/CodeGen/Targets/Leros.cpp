@@ -13,6 +13,11 @@ namespace {
 class LerosTargetCodeGenInfo : public TargetCodeGenInfo {
 public:
   LerosTargetCodeGenInfo(CodeGenTypes &CGT)
-      : TargetCodeGenInfo(new DefaultABIInfo(CGT)) {}
+      : TargetCodeGenInfo(std::make_unique<DefaultABIInfo>(CGT)) {}
 };
+} // end anonymous namespace
+
+std::unique_ptr<TargetCodeGenInfo>
+CodeGen::createLerosTargetCodeGenInfo(CodeGenModule &CGM) {
+  return std::make_unique<LerosTargetCodeGenInfo>(CGM.getTypes());
 }

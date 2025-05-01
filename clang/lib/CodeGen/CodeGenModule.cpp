@@ -225,7 +225,8 @@ createTargetCodeGenInfo(CodeGenModule &CGM) {
 
   case llvm::Triple::leros32:
   case llvm::Triple::leros64:
-    return SetCGInfo(new LerosTargetCodeGenInfo(Types));
+    return createLerosTargetCodeGenInfo(CGM);
+    //return SetCGInfo(new LerosTargetCodeGenInfo(Types));
 
   case llvm::Triple::riscv32:
   case llvm::Triple::riscv64: {
