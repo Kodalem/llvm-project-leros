@@ -213,13 +213,19 @@ def ixlenimm : Operand<XLenVT> {
 // ------------- Pseudo ISA wrapper classes -------------
 // Pseudo instruction wrapper for instruction format: brcond rs1 rs2 imm
 // Ie. breq rs1 rs2 bb => leros sub & leros brz
-class Pseudo_BrCmpRs1Rs2 : LerosPseudo<(outs), (ins GPR:$r1, GPR:$r2, simm13_lsb0:$imm12), F_BRCmp, []> {
+class Pseudo_BrCmpRs1Rs2 : LerosPseudo<
+  (outs), (ins GPR:$r1, GPR:$r2, simm13_lsb0:$imm12), F_BRCmp,
+  [(brcond (i32 (seteq GPR:$r1, GPR:$r2)), bb:$imm12)]
+> {
     let isBranch = 1;
     let isTerminator = 1;
 }
 
 // Ie. brgtz rs1 bb => leros brp
-class Pseudo_BrRs : LerosPseudo<(outs), (ins GPR:$r1, simm13_lsb0:$imm12), F_BRRs, []> {
+class Pseudo_BrRs : LerosPseudo<
+  (outs), (ins GPR:$r1, simm13_lsb0:$imm12), F_BRRs,
+  [(brcond (i32 (seteq GPR:$r1, 0)), bb:$imm12)]
+> {
     let isBranch = 1;
     let isTerminator = 1;
 }
@@ -247,10 +253,16 @@ class PSEUDO_RI : LerosPseudo<(outs GPR:$rd), (ins simm8:$imm), F_RI, []>;
 
 // Pseudo instruction classes for memory access functions
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
-class PSEUDO_Store_M<Operand immClass> : LerosPseudo<(outs), (ins GPR:$rs2, GPR:$rs1, immClass:$imm8), F_LS, []>;
+class PSEUDO_Store_M<Operand immClass> : LerosPseudo<
+  (outs), (ins GPR:$rs2, GPR:$rs1, immClass:$imm8), F_LS,
+  [(store GPR:$rs2, (add GPR:$rs1, immClass:$imm8))]
+>;
 
 let hasSideEffects = 0, mayLoad = 1, mayStore = 0 in
-class PSEUDO_Load_M<Operand immClass>  : LerosPseudo<(outs GPR:$rs2), (ins GPR:$rs1, immClass:$imm8), F_LS, []>;
+class PSEUDO_Load_M<Operand immClass>  : LerosPseudo<
+  (outs GPR:$rs2), (ins GPR:$rs1, immClass:$imm8), F_LS,
+  [(set GPR:$rs2, (load (add GPR:$rs1, immClass:$imm8)))]
+>;
 
 multiclass INSTR_RRI<LerosOpcode opcode, string opcodestr, SDNode opnode, Operand immClass>{
     // Pseudo instruction definition
@@ -321,20 +333,34 @@ let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in {
 }
 
 
-// Shifts are all pseudo instructions since they require custom emmission. 
+// Shifts are all pseudo instructions since they require custom emmission.
 // sra has an actual leros instruction, whereas shl and sra are emissions of small algorithms
-def SRA1_PSEUDO: LerosPseudo<(outs GPR:$rd), (ins GPR:$rs), F_NA, []>;
+def SRA1_PSEUDO: LerosPseudo<
+  (outs GPR:$rd), (ins GPR:$rs), F_NA, [(set GPR:$rd, (sra GPR:$rs, (XLenVT 1)))]
+>;
 def SRA1_MI  : LerosAccInst<OPC_SRA, "sra">;
 
-// Set pseudo-instructions will be emitted as custom branch sequences with phi nodes
 let usesCustomInserter = 1 in {
-    def SETEQ_PSEUDO    : LerosPseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA, []>;
-    def SETGE_PSEUDO    : LerosPseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA, []>;
-    def SETLT_PSEUDO    : LerosPseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA, []>;
-
-
-    def SETUGE_PSEUDO   : LerosPseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA, []>;
-    def SETULT_PSEUDO   : LerosPseudo<(outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA, []>;
+    def SETEQ_PSEUDO : LerosPseudo<
+      (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA,
+      [(set GPR:$rd, (seteq GPR:$rs1, GPR:$rs2))]
+    >;
+    def SETGE_PSEUDO : LerosPseudo<
+      (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA,
+      [(set GPR:$rd, (setge GPR:$rs1, GPR:$rs2))]
+    >;
+    def SETLT_PSEUDO : LerosPseudo<
+      (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA,
+      [(set GPR:$rd, (setlt GPR:$rs1, GPR:$rs2))]
+    >;
+    def SETULT_PSEUDO : LerosPseudo<
+      (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA,
+      [(set GPR:$rd, (setult GPR:$rs1, GPR:$rs2))]
+    >;
+    def SETUGE_PSEUDO : LerosPseudo<
+      (outs GPR:$rd), (ins GPR:$rs1, GPR:$rs2), F_NA,
+      [(set GPR:$rd, (setuge GPR:$rs1, GPR:$rs2))]
+    >;
 }
 
 // Machine load instructions
@@ -352,7 +378,10 @@ defm LOADH3I   : INSTR_RRI<OPC_LOADH3   ,  "loadh3",  LOADH3,  simm8_symbolref>;
 
 // simm32 immediates are matched to LOAD_IMM32_PSEUDO, which will determine the
 // optimal sequence of LOADHI instructions to use during pseudo instruction expansion
-def LOAD_IMM32_PSEUDO : LerosPseudo<(outs GPR:$rd), (ins simm32:$imm), F_NA, []>;
+def LOAD_IMM32_PSEUDO : LerosPseudo<
+  (outs GPR:$rd), (ins simm32:$imm), F_NA,
+  [(set GPR:$rd, simm32:$imm)]
+>;
 
 // Accumulator->register store
 def STORE_MI   : INSTR_RRRAcc<OPC_STORE, "store">;
@@ -397,7 +426,7 @@ def BRIND_PSEUDO : LerosPseudo<(outs), (ins GPR:$rd), F_NA, [(brind GPR:$rd)]>;
 // ================================================
 
 
-// Instructions where format is specific to the instruction 
+// Instructions where format is specific to the instruction
 let isCall = 1, Uses=[R0] in
 def JAL_call     : INSTR_AccReg<OPC_JAL, "jal">;
 
@@ -424,7 +453,7 @@ def PseudoCALLIndirect : LerosPseudo<(outs), (ins GPR:$rs1), F_NA, [(Call GPR:$r
 
 // Register copy instruction
 def MOV : LerosPseudo<(outs GPR:$rd), (ins GPR:$rs), F_NA,
-    [(set GPR:$rd, (LerosMov GPR:$rs))]>; 
+    [(set GPR:$rd, (LerosMov GPR:$rs))]>;
 
 /// Predicates
 
@@ -439,7 +468,7 @@ def : Pat<(simm32:$imm), (LOAD_IMM32_PSEUDO simm32:$imm)>;
 
 //===----------------------------------------------------------------------===//
 // Codegen patterns
-//===----------------------------------------------------------------------===//   
+//===----------------------------------------------------------------------===//
 
 // Branch register-0 comparison patterns
 class BrCmp0Pat<PatFrag CondOp, Pseudo_BrRs Inst>
@@ -542,9 +571,9 @@ defm : LdPat<zextloadi16,   LDINDHU_PSEUDO,     simm9_lsb0>;
 
 // Stores
 multiclass StPat<PatFrag StoreOp, LerosPseudo Inst, Operand immClass> {
-  def : Pat<(StoreOp GPR:$rs2, GPR:$rs1), 
+  def : Pat<(StoreOp GPR:$rs2, GPR:$rs1),
             (Inst GPR:$rs2, GPR:$rs1, 0)>;
-  def : Pat<(StoreOp GPR:$rs2, AddrFI:$rs1), 
+  def : Pat<(StoreOp GPR:$rs2, AddrFI:$rs1),
             (Inst GPR:$rs2, AddrFI:$rs1, 0)>;
   def : Pat<(StoreOp GPR:$rs2, (add GPR:$rs1, immClass:$imm)),
             (Inst GPR:$rs2, GPR:$rs1, immClass:$imm)>;
