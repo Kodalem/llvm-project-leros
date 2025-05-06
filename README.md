@@ -17,8 +17,6 @@ case 0: return !() && !();
 error: expected expression
 ```
 
-This cryptic error is triggered when a pseudo-instruction is defined with an **empty pattern list** (`[]`) in TableGen and is then used as the result (right-hand side) of a `Pat` pattern. TableGen expects any instruction or pseudo used in a pattern to have a non-empty pattern list describing how it should be matched or lowered. Failing to do so leads to broken generated C++ code and inscrutable compiler errors.
-
 ### 2. Outdated Leros Clang Codebase
 
 The entire Leros-specific Clang codebase is outdated and requires a careful update to be compatible with modern LLVM/Clang releases.
