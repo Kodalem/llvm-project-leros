@@ -1,7 +1,5 @@
 # Leros LLVM/Clang Integration
 
-[![Leros](https://leros-dev.github.io/img/leros-logo.png)](https://leros-dev.github.io/)
-
 This repository contains the LLVM/Clang backend and related infrastructure for the [Leros](https://leros-dev.github.io/) processor architecture.
 
 ## ⚠️ Project Status: Broken
