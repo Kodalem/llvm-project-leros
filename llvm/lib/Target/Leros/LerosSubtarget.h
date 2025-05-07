@@ -66,6 +66,20 @@ public:
   MVT getXLenVT() const { return XLenVT; }
   unsigned getXLen() const { return XLen; }
 
+  // TODO: Implement the following methods PROPERLY
+  bool is64Bit() const {
+    // Check if the target is 64-bit
+    bool HasLeros64 = true;
+    return HasLeros64;
+  }
+
+  bool is32Bit() const {
+
+    bool HasLeros32 = true;
+    return HasLeros32;
+  }
+
+
 protected:
   bool hasFPImpl(const MachineFunction &MF) const;
 };

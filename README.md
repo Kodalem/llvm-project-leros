@@ -1,23 +1,14 @@
 # Leros LLVM/Clang Integration
 
-[![Leros](https://leros-dev.github.io/img/leros-logo.png)](https://leros-dev.github.io/)
-
 This repository contains the LLVM/Clang backend and related infrastructure for the [Leros](https://leros-dev.github.io/) processor architecture.
 
 ## ⚠️ Project Status: Broken
 
 **This repository is currently broken and not usable. Two major issues must be fixed:**
 
-### 1. TableGen Generates Invalid C/C++ Code
+### 1. Missing definitions and methods
 
-TableGen currently produces invalid code such as:
-
-```
-case 0: return !() && !();
-error: expected expression
-```
-
-This cryptic error is triggered when a pseudo-instruction is defined with an **empty pattern list** (`[]`) in TableGen and is then used as the result (right-hand side) of a `Pat` pattern. TableGen expects any instruction or pseudo used in a pattern to have a non-empty pattern list describing how it should be matched or lowered. Failing to do so leads to broken generated C++ code and inscrutable compiler errors.
+This repository is missing overloaded methods and overloaded functions for LLVM20+.
 
 ### 2. Outdated Leros Clang Codebase
 

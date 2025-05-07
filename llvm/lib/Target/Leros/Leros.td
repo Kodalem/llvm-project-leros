@@ -20,15 +20,18 @@ def IsRV64 : Predicate<"Subtarget->is64Bit()">,
 def IsRV32 : Predicate<"!Subtarget->is64Bit()">,
                        AssemblerPredicate<(all_of (not Feature64Bit))>;
 
-def Leros32 : HwMode<"-64bit", []>;
-def Leros64 : HwMode<"+64bit", []>;
+def IsLeros64 : Predicate<"Subtarget->is64Bit()">;
+def IsLeros32 : Predicate<"!Subtarget->is64Bit()">;
+
+def Leros32 : HwMode<"-64bit", [IsLeros32]>;
+def Leros64 : HwMode<"+64bit", [IsLeros64]>;
 
 /* @todo: These are not subtarget specific features, but rather our processor model specifications
 def Fe
-def IsLeros32 : Predicate<"Subtarget->is32Bit()">, 
+def IsLeros32 : Predicate<"Subtarget->is32Bit()">,
   AssemblerPredicate<"Leros32Bit">;
 
-def IsLeros64 : Predicate<"Subtarget->is64Bit()">, 
+def IsLeros64 : Predicate<"Subtarget->is64Bit()">,
   AssemblerPredicate<"Leros64Bit">;
 
 

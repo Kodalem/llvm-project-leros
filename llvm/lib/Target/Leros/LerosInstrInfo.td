@@ -1,4 +1,4 @@
-//===-- LerosInstrInfo.td - Target Description for RISCV ---*- tablegen -*-===//
+//===-- LerosInstrInfo.td - Target Description for Leros ---*- tablegen -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -73,9 +73,8 @@ class UImmAsmOperand<int width, string suffix = "">
     : ImmAsmOperand<"U", width, suffix> {
 }
 
-// Leros only has two forms of immediate operands - a signed and unsigned 
+// Leros only has two forms of immediate operands - a signed and unsigned
 // byte-sized immediate.
-// Both operands are mapped to XLenVT for calls
 def uimm8 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isUInt<8>(Imm);}]> {
   let EncoderMethod = "getImmOpValue";
   let ParserMatchClass = UImmAsmOperand<8>;
@@ -110,11 +109,8 @@ def simm8_symbolref : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<8>(Imm);}]
   }];
 }
 
-
 // Boolean operations are only able to safely parse immediates that can be expressed
-// as 7-bit immediates. If they immediate is in the 8th bit, we risk sign extension and
-// thus expressing the wrong operation. ie. 'and -1' for bitmasking the lower byte is incorrect,
-// because -1 will sign extend. 
+// as 7-bit immediates.
 def uimm7 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isUInt<7>(Imm);}]> {
   let ParserMatchClass = UImmAsmOperand<7>;
   let EncoderMethod = "getImmOpValue";
@@ -212,7 +208,6 @@ def ixlenimm : Operand<XLenVT> {
 
 // ------------- Pseudo ISA wrapper classes -------------
 // Pseudo instruction wrapper for instruction format: brcond rs1 rs2 imm
-// Ie. breq rs1 rs2 bb => leros sub & leros brz
 class Pseudo_BrCmpRs1Rs2 : LerosPseudo<
   (outs), (ins GPR:$r1, GPR:$r2, simm13_lsb0:$imm12), F_BRCmp,
   [(brcond (i32 (seteq GPR:$r1, GPR:$r2)), bb:$imm12)]
@@ -249,7 +244,9 @@ class PSEUDO_RRR<SDNode opnode> : LerosPseudo<(outs GPR:$rd), (ins GPR:$r1,
    GPR:$r2), F_RRR, [(set i32:$rd, (opnode i32:$r1, i32:$r2))]>;
 
 // Pseudo instruction wrapper for a Reg -> Imm instruction
-class PSEUDO_RI : LerosPseudo<(outs GPR:$rd), (ins simm8:$imm), F_RI, []>;
+class PSEUDO_RI : LerosPseudo<(outs GPR:$rd), (ins simm8:$imm), F_RI,
+  [(set GPR:$rd, simm8:$imm)]
+>;
 
 // Pseudo instruction classes for memory access functions
 let hasSideEffects = 0, mayLoad = 0, mayStore = 1 in
@@ -456,7 +453,6 @@ def MOV : LerosPseudo<(outs GPR:$rd), (ins GPR:$rs), F_NA,
     [(set GPR:$rd, (LerosMov GPR:$rs))]>;
 
 /// Predicates
-
 def IsOrAdd: PatFrag<(ops node:$A, node:$B), (or node:$A, node:$B), [{
   return isOrEquivalentToAdd(N);
 }]>;

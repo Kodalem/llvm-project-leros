@@ -20,6 +20,8 @@
 #define GET_INSTRINFO_HEADER
 #include "LerosGenInstrInfo.inc"
 
+#include <malloc/_platform.h>
+
 namespace llvm {
 
 class LerosInstrInfo : public LerosGenInstrInfo {
@@ -69,6 +71,20 @@ public:
 
   unsigned removeBranch(MachineBasicBlock &MBB,
                         int *BytesRemoved = nullptr) const;
+
+
+  // TODO: Implement the following methods PROPERLY
+  bool is64Bit() const {
+    // Check if the target is 64-bit
+    bool HasLeros64 = true;
+    return HasLeros64;
+  }
+
+  bool is32Bit() const {
+
+    bool HasLeros32 = true;
+    return HasLeros32;
+  }
 
 private:
   void expandMOV(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
